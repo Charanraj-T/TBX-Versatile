@@ -1,0 +1,96 @@
+name: tbx-finops-assistant
+
+services:
+  # 1. PostgreSQL Demo Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: tbx-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-finops}
+      POSTGRES_USER: ${POSTGRES_USER:-finops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finops}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ./database/seed.sql:/docker-entrypoint-initdb.d/02-seed.sql:ro
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-finops} -d ${POSTGRES_DB:-finops}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Google MCP Toolbox for Databases
+  mcp-toolbox:
+    image: us-central1-docker.pkg.dev/database-toolbox/toolbox/toolbox:latest
+    platform: linux/amd64
+    container_name: tbx-mcp-toolbox
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-finops}
+      POSTGRES_USER: ${POSTGRES_USER:-finops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finops}
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mcp-toolbox/tools.yaml:/app/tools.yaml:ro
+    command: ["--config", "/app/tools.yaml", "--address", "0.0.0.0", "--port", "5000"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      disable: true
+
+  # 3. Spring Boot API Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tbx-backend
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: ${POSTGRES_DB:-finops}
+      POSTGRES_USER: ${POSTGRES_USER:-finops}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finops}
+      MCP_TOOLBOX_URL: http://mcp-toolbox:5000
+      AI_PROVIDER: ${AI_PROVIDER:-groq}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      GROQ_BASE_URL: ${GROQ_BASE_URL:-https://api.groq.com/openai/v1}
+      GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-20b}
+      SARVAM_API_KEY: ${SARVAM_API_KEY:-}
+      SARVAM_BASE_URL: ${SARVAM_BASE_URL:-https://api.sarvam.ai/v1}
+      SARVAM_MODEL: ${SARVAM_MODEL:-sarvam-105b}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mcp-toolbox:
+        condition: service_started
+
+  # 4. Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    container_name: tbx-frontend
+    restart: unless-stopped
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8080}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+    driver: local

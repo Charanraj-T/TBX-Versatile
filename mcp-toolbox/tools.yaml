@@ -1,0 +1,92 @@
+# ==============================================================================
+# Google MCP Toolbox for Databases - Configuration
+# TBX FinOps Assistant - Demo Tools
+# ==============================================================================
+
+sources:
+  finops_db:
+    kind: postgres
+    host: ${POSTGRES_HOST}
+    port: ${POSTGRES_PORT}
+    database: ${POSTGRES_DB}
+    user: ${POSTGRES_USER}
+    password: ${POSTGRES_PASSWORD}
+
+tools:
+  get_vendor_spend:
+    kind: postgres-sql
+    source: finops_db
+    description: "Get total spend, transaction count, and category for a specific vendor"
+    parameters:
+      - name: vendor_name
+        type: string
+        description: "The name of the vendor to search for (e.g. 'Vendor A')"
+    statement: |
+      SELECT 
+        v.name AS vendor_name, 
+        COALESCE(SUM(t.amount), 0) AS total_spend, 
+        COUNT(t.id) AS transaction_count,
+        v.category AS vendor_category
+      FROM vendors v
+      LEFT JOIN transactions t ON v.id = t.vendor_id
+      WHERE v.name ILIKE '%' || $1 || '%'
+      GROUP BY v.name, v.category;
+
+  get_transaction_summary:
+    kind: postgres-sql
+    source: finops_db
+    description: "Get aggregate summary across all transactions including total spend, transaction count, and active vendor count"
+    statement: |
+      SELECT 
+        COUNT(t.id) AS total_transactions, 
+        COALESCE(SUM(t.amount), 0) AS total_amount, 
+        COUNT(DISTINCT t.vendor_id) AS total_vendors
+      FROM transactions t;
+
+  compare_vendor_periods:
+    kind: postgres-sql
+    source: finops_db
+    description: "Compare a vendor's spend between two monthly periods (e.g. 2025-01 and 2025-02)"
+    parameters:
+      - name: vendor_name
+        type: string
+        description: "The name of the vendor (e.g. 'Vendor A')"
+      - name: period1
+        type: string
+        description: "First period in YYYY-MM format (e.g. '2025-01')"
+      - name: period2
+        type: string
+        description: "Second period in YYYY-MM format (e.g. '2025-02')"
+    statement: |
+      SELECT 
+        v.name AS vendor_name,
+        COALESCE(SUM(CASE WHEN TO_CHAR(t.transaction_date, 'YYYY-MM') = $2 THEN t.amount ELSE 0 END), 0) AS period1_spend,
+        COALESCE(SUM(CASE WHEN TO_CHAR(t.transaction_date, 'YYYY-MM') = $3 THEN t.amount ELSE 0 END), 0) AS period2_spend,
+        (COALESCE(SUM(CASE WHEN TO_CHAR(t.transaction_date, 'YYYY-MM') = $3 THEN t.amount ELSE 0 END), 0) - 
+         COALESCE(SUM(CASE WHEN TO_CHAR(t.transaction_date, 'YYYY-MM') = $2 THEN t.amount ELSE 0 END), 0)) AS difference
+      FROM vendors v
+      LEFT JOIN transactions t ON v.id = t.vendor_id
+      WHERE v.name ILIKE '%' || $1 || '%'
+      GROUP BY v.name;
+
+  get_vendor_payment_history:
+    kind: postgres-sql
+    source: finops_db
+    description: "Get list of settled payments and transaction details for a specific vendor"
+    parameters:
+      - name: vendor_name
+        type: string
+        description: "The name of the vendor (e.g. 'Vendor A')"
+    statement: |
+      SELECT 
+        v.name AS vendor_name,
+        p.paid_amount,
+        p.payment_method,
+        TO_CHAR(p.payment_date, 'YYYY-MM-DD') AS payment_date,
+        p.reference_code
+      FROM vendors v
+      JOIN transactions t ON v.id = t.vendor_id
+      JOIN payments p ON t.id = p.transaction_id
+      WHERE v.name ILIKE '%' || $1 || '%'
+      ORDER BY p.payment_date DESC;
+

@@ -1,0 +1,76 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: tbx-finops-assistant
+  
+  # PostgreSQL datasource for Spring Boot Actuator health checks
+  datasource:
+    url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:finops}
+    username: ${POSTGRES_USER:finops}
+    password: ${POSTGRES_PASSWORD:finops}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connection-timeout: 5000
+      maximum-pool-size: 5
+      initialization-fail-timeout: -1
+
+  # Spring AI Configuration (Spring AI MCP Client)
+  ai:
+    openai:
+      api-key: ${GROQ_API_KEY:${SARVAM_API_KEY:not-set}}
+      base-url: ${GROQ_BASE_URL:${SARVAM_BASE_URL:https://api.groq.com/openai/v1}}
+      chat:
+        options:
+          model: ${GROQ_MODEL:${SARVAM_MODEL:openai/gpt-oss-20b}}
+    mcp:
+      client:
+        # Keep client disabled on spring auto-init to prevent crash if server is booting;
+        # Our resilient McpClientService manages connection lifecycle and graceful fallbacks
+        enabled: false
+        type: SYNC
+        streamable-http:
+          connections:
+            toolbox:
+              url: ${MCP_TOOLBOX_URL:http://mcp-toolbox:5000}
+              endpoint: /mcp
+
+# Application custom configurations
+app:
+  ai:
+    provider: ${AI_PROVIDER:groq}
+    groq:
+      api-key: ${GROQ_API_KEY:}
+      base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}
+      model: ${GROQ_MODEL:openai/gpt-oss-20b}
+    sarvam:
+      api-key: ${SARVAM_API_KEY:}
+      base-url: ${SARVAM_BASE_URL:https://api.sarvam.ai/v1}
+      model: ${SARVAM_MODEL:sarvam-105b}
+  mcp:
+    toolbox-url: ${MCP_TOOLBOX_URL:http://mcp-toolbox:5000}
+    timeout-seconds: 10
+  cors:
+    allowed-origin: ${FRONTEND_URL:http://localhost:3000}
+
+# Spring Boot Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: always
+      probes:
+        enabled: true
+
+# Logging format and masking
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [CID:%X{correlationId:-NONE}] %logger{36} - %msg%n"
+  level:
+    root: INFO
+    com.tbx.finops: DEBUG
+    org.springframework.ai: INFO
