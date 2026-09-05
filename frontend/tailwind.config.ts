@@ -19,9 +19,19 @@ const config: Config = {
           900: '#134e4a',
         },
       },
+      // Tailwind v4 class-name compatibility (shadow-xs, shadow-2xs, border-3, backdrop-blur-xs)
+      boxShadow: {
+        '2xs': '0 0 0 1px rgb(0 0 0 / 0.05)',
+        xs: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+      },
+      borderWidth: {
+        3: '3px',
+      },
+      backdropBlur: {
+        xs: '4px',
+      },
     },
   },
-  plugins: [],
+  plugins: [require('tailwindcss-animate')],
 };
 export default config;
-

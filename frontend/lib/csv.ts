@@ -1,4 +1,4 @@
-import type { BreakdownColumn } from '../types';
+import { BreakdownColumn } from './types';
 
 export function exportToCSV(columns: BreakdownColumn[], rows: any[], filename = 'financial_export.csv') {
   if (!rows || rows.length === 0) return;
@@ -23,7 +23,7 @@ export function exportToCSV(columns: BreakdownColumn[], rows: any[], filename = 
 export function exportToExcel(columns: BreakdownColumn[], rows: any[], filename = 'financial_export.xls') {
   if (!rows || rows.length === 0) return;
 
-  const headerCells = columns.map(col => 
+  const headerCells = columns.map(col =>
     `<Cell ss:StyleID="Header"><Data ss:Type="String">${escapeXml(col.label)}</Data></Cell>`
   ).join('');
 
@@ -57,7 +57,7 @@ export function exportToExcel(columns: BreakdownColumn[], rows: any[], filename 
    <Alignment ss:Horizontal="Center" ss:Vertical="Center"/>
   </Style>
   <Style ss:ID="Currency">
-   <NumberFormat ss:Format="$#,##0.00"/>
+   <NumberFormat ss:Format="₹#,##0.00"/>
   </Style>
   <Style ss:ID="Number">
    <NumberFormat ss:Format="#,##0"/>

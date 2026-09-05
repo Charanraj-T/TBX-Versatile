@@ -172,6 +172,16 @@ public class McpClientService {
                     rawText = rawBuilder.toString();
                     parsedData = rows;
                 }
+            } else if (contentNode.isArray()) {
+                rawText = "[]";
+                parsedData = List.of();
+            } else if (contentNode.isTextual()) {
+                rawText = contentNode.asText("");
+                try {
+                    parsedData = objectMapper.readValue(rawText, Object.class);
+                } catch (Exception ignored) {
+                    parsedData = rawText;
+                }
             }
 
             if (isError) {

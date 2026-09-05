@@ -7,10 +7,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -56,6 +58,28 @@ public class GlobalExceptionHandler {
         log.warn("Illegal argument: {}", ex.getMessage());
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
             .body(ErrorResponse.of("BAD_REQUEST", ex.getMessage(), HttpStatus.BAD_REQUEST.value()));
+    }
+
+    @ExceptionHandler(ResponseStatusException.class)
+    public ResponseEntity<ErrorResponse> handleResponseStatus(ResponseStatusException ex) {
+        log.warn("Requested resource failed: status={}, reason={}", ex.getStatusCode(), ex.getReason());
+        return ResponseEntity.status(ex.getStatusCode())
+            .body(ErrorResponse.of(
+                "NOT_FOUND",
+                ex.getReason() != null ? ex.getReason() : "Resource not found.",
+                ex.getStatusCode().value()
+            ));
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoResource(NoResourceFoundException ex) {
+        log.warn("No handler found for requested resource: {}", ex.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .body(ErrorResponse.of(
+                "NOT_FOUND",
+                "Resource not found.",
+                HttpStatus.NOT_FOUND.value()
+            ));
     }
 
     @ExceptionHandler(Exception.class)

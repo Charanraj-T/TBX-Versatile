@@ -66,7 +66,7 @@ public class ValidationEngine {
                     return ValidationResult.failed("Invalid numeric balance value: " + record.get("available_balance"));
                 }
                 notes.add("Account ID validated: " + record.get("account_id"));
-                notes.add("Available balance validated: $" + balance);
+                notes.add("Available balance validated: ₹" + balance);
                 if (record.containsKey("bank_name")) {
                     notes.add("Bank verified: " + record.get("bank_name") + " (" + record.get("bank_code") + ")");
                 }
@@ -78,7 +78,7 @@ public class ValidationEngine {
                 }
                 Number accounts = parseNumber(record.get("total_accounts"));
                 BigDecimal balance = parseBigDecimal(record.get("total_available_balance"));
-                notes.add("Bank " + record.get("bank_code") + " validated: " + accounts + " accounts, total balance: $" + balance);
+                notes.add("Bank " + record.get("bank_code") + " validated: " + accounts + " accounts, total balance: ₹" + balance);
             }
 
             case "get_transaction_by_reference" -> {
@@ -90,7 +90,7 @@ public class ValidationEngine {
                     return ValidationResult.failed("Invalid or negative transaction amount: " + record.get("transaction_amount"));
                 }
                 notes.add("Transaction reference validated: " + record.get("transaction_reference_id"));
-                notes.add("Type: " + record.get("transaction_type") + ", Amount: $" + amount);
+                notes.add("Type: " + record.get("transaction_type") + ", Amount: ₹" + amount);
             }
 
             case "get_transaction_volume_summary" -> {
@@ -104,7 +104,21 @@ public class ValidationEngine {
                 if (credits == null || debits == null || net == null) {
                      return ValidationResult.failed("Invalid numeric values for transaction volumes.");
                 }
-                notes.add("Total transactions: " + totalTx + ", Credits: $" + credits + ", Debits: $" + debits + ", Net flow: $" + net);
+                notes.add("Total transactions: " + totalTx + ", Credits: ₹" + credits + ", Debits: ₹" + debits + ", Net flow: ₹" + net);
+            }
+
+            case "get_monthly_transaction_summary" -> {
+                if (!record.containsKey("total_transactions") || !record.containsKey("total_credits_amount") || !record.containsKey("total_debits_amount") || !record.containsKey("net_flow")) {
+                    return ValidationResult.failed("Summary missing total_transactions or credit/debit/net amount fields.");
+                }
+                Number totalTx = parseNumber(record.get("total_transactions"));
+                BigDecimal credits = parseBigDecimal(record.get("total_credits_amount"));
+                BigDecimal debits = parseBigDecimal(record.get("total_debits_amount"));
+                BigDecimal net = parseBigDecimal(record.get("net_flow"));
+                if (credits == null || debits == null || net == null) {
+                     return ValidationResult.failed("Invalid numeric values for monthly transaction volumes.");
+                }
+                notes.add("Month '" + filters.get("month") + "' validated: " + totalTx + " transactions, Credits: ₹" + credits + ", Debits: ₹" + debits + ", Net flow: ₹" + net);
             }
 
             case "get_account_transactions" -> {

@@ -39,3 +39,8 @@ export interface HealthResponse {
   details?: Record<string, any>;
 }
 
+export interface BreakdownColumn {
+  key: string;
+  label: string;
+  format?: 'currency' | 'date' | 'badge' | 'text' | 'number';
+}

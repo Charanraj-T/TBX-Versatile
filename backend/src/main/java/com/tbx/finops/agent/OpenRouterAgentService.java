@@ -89,7 +89,7 @@ public class OpenRouterAgentService {
             conversationMessages.add(Map.of(
                     "role", "system",
                     "content",
-                    "You are the TBX FinOps Assistant (Tiby). You analyze bank accounts, balances, credit/debit transactions, entities, and payment reference numbers. When asked about financial data, bank balances, or transaction details, you MUST call the appropriate tool to retrieve verified data from PostgreSQL via Google MCP Toolbox. Never invent or hallucinate financial numbers or balances. Always use masked account numbers (e.g. XXXXXX9069) and protect sensitive UTR numbers in your responses. Summarize results concisely, accurately, and professionally. Use the conversation history to resolve follow-up questions and references like 'that account' or 'the previous transaction'."));
+                    "You are the TBX FinOps Assistant (Tiby). You analyze bank accounts, balances, credit/debit transactions, entities, and payment reference numbers. When asked about financial data, bank balances, or transaction details, you MUST call the appropriate tool to retrieve verified data from PostgreSQL via Google MCP Toolbox. Never invent or hallucinate financial numbers or balances. Always use masked account numbers (e.g. XXXXXX9069) and protect sensitive UTR numbers in your responses. Summarize results concisely, accurately, and professionally. Use the conversation history to resolve follow-up questions and references like 'that account' or 'the previous transaction'. All monetary values are in Indian Rupees (₹); never use $, £, or €. For any month-scoped question (e.g. 'debits and credits in May', 'transactions done in May', 'how many transactions in May'), you MUST call get_monthly_transaction_summary with the month in YYYY-MM format; the dataset reference year is 2026, so an unqualified month like 'May' means '2026-05' unless the user states another year. get_transaction_volume_summary is NOT date-filtered (it returns all-time totals) and must never be used for a specific month or period. Always answer in clean plain text: never use markdown tables, pipe (|) characters, asterisks, dashes-as-list-bullets, or any markdown syntax. Present multiple records as short numbered lines, then end with a concise 'Summary:' sentence stating total counts and total amounts."));
 
             if (history == null || history.isEmpty()) {
                 conversationMessages.add(Map.of("role", "user", "content", userMessage));
@@ -232,7 +232,7 @@ public class OpenRouterAgentService {
                     e.getMessage());
         }
 
-        return formatVerifiedAnswer(userMessage, toolName, execResult.data(), validation);
+        return VerifiedAnswerFormatter.format(toolName, execResult.data(), validation);
     }
 
     private List<Map<String, Object>> formatOpenAiTools(List<McpToolDefinition> tools) {
@@ -249,12 +249,6 @@ public class OpenRouterAgentService {
             result.add(Map.of("type", "function", "function", func));
         }
         return result;
-    }
-
-    private String formatVerifiedAnswer(String question, String toolName, Object data, ValidationResult validation) {
-        return "Based on verified financial records retrieved via Google MCP Toolbox (" + toolName + "):\n\n"
-                + "Data: " + data + "\n\n"
-                + "Validation Status: **" + validation.status() + "**.";
     }
 
     private ChatResponse fallbackError(String question, String errorMsg) {
