@@ -150,13 +150,30 @@ public class McpClientService {
             Object parsedData = null;
 
             if (contentNode.isArray() && !contentNode.isEmpty()) {
-                JsonNode firstItem = contentNode.get(0);
-                rawText = firstItem.path("text").asText("");
-                try {
-                    // Try parsing raw text as JSON array or object
-                    parsedData = objectMapper.readValue(rawText, Object.class);
-                } catch (Exception ignored) {
-                    parsedData = rawText;
+                if (contentNode.size() == 1) {
+                    JsonNode firstItem = contentNode.get(0);
+                    rawText = firstItem.path("text").asText("");
+                    try {
+                        parsedData = objectMapper.readValue(rawText, Object.class);
+                    } catch (Exception ignored) {
+                        parsedData = rawText;
+                    }
+                } else {
+                    List<Object> rows = new ArrayList<>();
+                    StringBuilder rawBuilder = new StringBuilder("[");
+                    for (int i = 0; i < contentNode.size(); i++) {
+                        String itemText = contentNode.get(i).path("text").asText("");
+                        if (i > 0) rawBuilder.append(",");
+                        rawBuilder.append(itemText);
+                        try {
+                            rows.add(objectMapper.readValue(itemText, Object.class));
+                        } catch (Exception ignored) {
+                            rows.add(itemText);
+                        }
+                    }
+                    rawBuilder.append("]");
+                    rawText = rawBuilder.toString();
+                    parsedData = rows;
                 }
             }
 

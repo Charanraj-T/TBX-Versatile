@@ -132,49 +132,49 @@ This starts all 4 containers:
 
 ---
 
-## 4. Testing Demo Questions
+## 4. Testing Financial & Banking Questions
 
-You can test these in the Next.js UI or via `curl`:
+You can test these in the Next.js UI ([http://localhost:3000](http://localhost:3000)) or via `curl`:
 
-### 1. Vendor Spend:
-
+### 1. Account Available Balance:
 ```bash
 curl -s -X POST http://localhost:8080/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "What is Vendor A total spend?"}' | jq .
+  -d '{"message": "What is the available balance for account acfbe204-7541-492c-a352-040aa984bedc?"}' | jq .
 ```
+_Expected_: Account balance of **-₹25,907,487.00** (HDFC Bank, Masked: `XXXXXX9069`). Tool: `get_account_balance`.
 
-_Expected_: Total spend of **$125,000.00** across 4 transactions. Evidence tool: `get_vendor_spend`.
-
-### 2. Vendor Received / Payment:
-
+### 2. Transaction Reference Number Lookup:
 ```bash
 curl -s -X POST http://localhost:8080/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "How much did Vendor B receive?"}' | jq .
+  -d '{"message": "Find details for transaction reference 1715499972"}' | jq .
 ```
+_Expected_: Debit of **₹14,866.00** for Selection Electronics Dahisar East with protected UTR. Tool: `get_transaction_by_reference`.
 
-_Expected_: Total spend of **$38,500.00** across 3 transactions.
-
-### 3. Period Comparison:
-
+### 3. Bank Account & Balance Summary:
 ```bash
 curl -s -X POST http://localhost:8080/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Compare Vendor A spend between January and February."}' | jq .
+  -d '{"message": "How many accounts do we have in HDFC Bank and what is our total balance?"}' | jq .
 ```
+_Expected_: **3 accounts** in HDFC Bank Limited with total balance of **-₹252,302,939.33**. Tool: `get_bank_summary`.
 
-_Expected_: January spend ($75,000), February spend ($50,000), Difference (-$25,000).
-
-### 4. Overall Transaction Summary:
-
+### 4. Overall Transaction Volume & Net Flow:
 ```bash
 curl -s -X POST http://localhost:8080/api/chat \
   -H "Content-Type: application/json" \
-  -d '{"message": "Give me an overall transaction summary across all vendors."}' | jq .
+  -d '{"message": "What is the overall transaction volume summary across credits and debits?"}' | jq .
 ```
+_Expected_: 10 transactions (2 Credits totaling ₹296,810.00, 8 Debits totaling ₹249,806.00, Net flow +₹47,004.00). Tool: `get_transaction_volume_summary`.
 
-_Expected_: Aggregate summary across all 12 transactions totaling $220,200.00 across 4 distinct vendors.
+### 5. Registered Banks Registry:
+```bash
+curl -s -X POST http://localhost:8080/api/chat \
+  -H "Content-Type: application/json" \
+  -d '{"message": "List all registered banks in the system"}' | jq .
+```
+_Expected_: Full table of 10 registered banks (HDFC, ICIC, SBIN, UTIB, KKBK, CNRB, UBIN, AUBL, TMBL, RATN) with linked accounts count. Tool: `list_banks`.
 
 ---
 

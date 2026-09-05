@@ -1,6 +1,6 @@
 # ==============================================================================
 # Google MCP Toolbox for Databases - Configuration
-# TBX FinOps Assistant - Demo Tools
+# TBX FinOps Assistant (Tiby) - Banking & Transaction Tools
 # ==============================================================================
 
 sources:
@@ -13,80 +13,153 @@ sources:
     password: ${POSTGRES_PASSWORD}
 
 tools:
-  get_vendor_spend:
+  get_account_balance:
     kind: postgres-sql
     source: finops_db
-    description: "Get total spend, transaction count, and category for a specific vendor"
+    description: "Get the current available balance, bank name, program ID, and masked account number for an account using account_id or account_number"
     parameters:
-      - name: vendor_name
+      - name: identifier
         type: string
-        description: "The name of the vendor to search for (e.g. 'Vendor A')"
+        description: "The account UUID or account number (e.g. 'acfbe204-7541-492c-a352-040aa984bedc' or '50200013729069' or '9069')"
     statement: |
       SELECT 
-        v.name AS vendor_name, 
-        COALESCE(SUM(t.amount), 0) AS total_spend, 
-        COUNT(t.id) AS transaction_count,
-        v.category AS vendor_category
-      FROM vendors v
-      LEFT JOIN transactions t ON v.id = t.vendor_id
-      WHERE v.name ILIKE '%' || $1 || '%'
-      GROUP BY v.name, v.category;
+        a.account_id,
+        a.entity_id,
+        CONCAT('XXXXXX', RIGHT(a.account_number, 4)) AS account_number_masked,
+        a.program_id,
+        a.available_balance,
+        a.bank_code,
+        b.bank_name
+      FROM account a
+      JOIN bank b ON a.bank_code = b.bank_code
+      WHERE a.account_id = $1 
+         OR a.account_number = $1 
+         OR a.account_number LIKE '%' || $1
+      LIMIT 1;
 
-  get_transaction_summary:
+  get_accounts_by_entity:
     kind: postgres-sql
     source: finops_db
-    description: "Get aggregate summary across all transactions including total spend, transaction count, and active vendor count"
-    statement: |
-      SELECT 
-        COUNT(t.id) AS total_transactions, 
-        COALESCE(SUM(t.amount), 0) AS total_amount, 
-        COUNT(DISTINCT t.vendor_id) AS total_vendors
-      FROM transactions t;
-
-  compare_vendor_periods:
-    kind: postgres-sql
-    source: finops_db
-    description: "Compare a vendor's spend between two monthly periods (e.g. 2025-01 and 2025-02)"
+    description: "List all bank accounts, banks, and available balances belonging to a specific customer or entity"
     parameters:
-      - name: vendor_name
+      - name: entity_id
         type: string
-        description: "The name of the vendor (e.g. 'Vendor A')"
-      - name: period1
-        type: string
-        description: "First period in YYYY-MM format (e.g. '2025-01')"
-      - name: period2
-        type: string
-        description: "Second period in YYYY-MM format (e.g. '2025-02')"
+        description: "The entity UUID/ID (e.g. 'f2f5e332-c2d1-4555-9a6b-65c7cd195077')"
     statement: |
       SELECT 
-        v.name AS vendor_name,
-        COALESCE(SUM(CASE WHEN TO_CHAR(t.transaction_date, 'YYYY-MM') = $2 THEN t.amount ELSE 0 END), 0) AS period1_spend,
-        COALESCE(SUM(CASE WHEN TO_CHAR(t.transaction_date, 'YYYY-MM') = $3 THEN t.amount ELSE 0 END), 0) AS period2_spend,
-        (COALESCE(SUM(CASE WHEN TO_CHAR(t.transaction_date, 'YYYY-MM') = $3 THEN t.amount ELSE 0 END), 0) - 
-         COALESCE(SUM(CASE WHEN TO_CHAR(t.transaction_date, 'YYYY-MM') = $2 THEN t.amount ELSE 0 END), 0)) AS difference
-      FROM vendors v
-      LEFT JOIN transactions t ON v.id = t.vendor_id
-      WHERE v.name ILIKE '%' || $1 || '%'
-      GROUP BY v.name;
+        a.account_id,
+        a.entity_id,
+        CONCAT('XXXXXX', RIGHT(a.account_number, 4)) AS account_number_masked,
+        a.program_id,
+        a.available_balance,
+        a.bank_code,
+        b.bank_name
+      FROM account a
+      JOIN bank b ON a.bank_code = b.bank_code
+      WHERE a.entity_id = $1
+      ORDER BY a.available_balance DESC;
 
-  get_vendor_payment_history:
+  get_bank_summary:
     kind: postgres-sql
     source: finops_db
-    description: "Get list of settled payments and transaction details for a specific vendor"
+    description: "Get total account count and aggregated available balance held at a specific bank"
     parameters:
-      - name: vendor_name
+      - name: bank_identifier
         type: string
-        description: "The name of the vendor (e.g. 'Vendor A')"
+        description: "Bank code (e.g. 'HDFC', 'ICIC', 'SBIN', 'UTIB', 'UBIN') or bank name (e.g. 'HDFC BANK LIMITED')"
     statement: |
       SELECT 
-        v.name AS vendor_name,
-        p.paid_amount,
-        p.payment_method,
-        TO_CHAR(p.payment_date, 'YYYY-MM-DD') AS payment_date,
-        p.reference_code
-      FROM vendors v
-      JOIN transactions t ON v.id = t.vendor_id
-      JOIN payments p ON t.id = p.transaction_id
-      WHERE v.name ILIKE '%' || $1 || '%'
-      ORDER BY p.payment_date DESC;
+        b.bank_code,
+        b.bank_name,
+        COUNT(a.account_id) AS total_accounts,
+        COALESCE(SUM(a.available_balance), 0) AS total_available_balance
+      FROM bank b
+      LEFT JOIN account a ON b.bank_code = a.bank_code
+      WHERE b.bank_code ILIKE '%' || $1 || '%' OR b.bank_name ILIKE '%' || $1 || '%'
+      GROUP BY b.bank_code, b.bank_name;
 
+  get_transaction_by_reference:
+    kind: postgres-sql
+    source: finops_db
+    description: "Lookup transaction details by transaction_reference_id (receipt/ref no), UTR number, or transaction UUID"
+    parameters:
+      - name: reference_id
+        type: string
+        description: "The transaction reference ID (e.g. '1715499972', 'S31125841', 'HDFCH01078329532') or UTR number or transaction_id"
+    statement: |
+      SELECT 
+        t.transaction_id,
+        t.account_id,
+        CONCAT('XXXXXX', RIGHT(a.account_number, 4)) AS account_number_masked,
+        a.bank_code,
+        b.bank_name,
+        TO_CHAR(t.transaction_date, 'YYYY-MM-DD HH24:MI:SS') AS transaction_date,
+        t.transaction_type,
+        t.transaction_amount,
+        t.description,
+        t.transaction_reference_id,
+        CASE WHEN t.utr_number IS NOT NULL THEN CONCAT('ENC:', LEFT(t.utr_number, 8), '...[PROTECTED]') ELSE NULL END AS utr_number_masked
+      FROM transaction t
+      JOIN account a ON t.account_id = a.account_id
+      JOIN bank b ON a.bank_code = b.bank_code
+      WHERE t.transaction_reference_id = $1 
+         OR t.utr_number = $1
+         OR t.transaction_id = $1
+      LIMIT 1;
+
+  get_account_transactions:
+    kind: postgres-sql
+    source: finops_db
+    description: "Get recent transaction history (credit and debit records) for a specific account"
+    parameters:
+      - name: identifier
+        type: string
+        description: "The account ID or account number or last 4 digits (e.g. 'acfbe204-7541-492c-a352-040aa984bedc' or '50200013729069')"
+    statement: |
+      SELECT 
+        t.transaction_id,
+        CONCAT('XXXXXX', RIGHT(a.account_number, 4)) AS account_number_masked,
+        a.bank_code,
+        b.bank_name,
+        TO_CHAR(t.transaction_date, 'YYYY-MM-DD HH24:MI:SS') AS transaction_date,
+        t.transaction_type,
+        t.transaction_amount,
+        t.description,
+        t.transaction_reference_id
+      FROM transaction t
+      JOIN account a ON t.account_id = a.account_id
+      JOIN bank b ON a.bank_code = b.bank_code
+      WHERE a.account_id = $1 
+         OR a.account_number = $1 
+         OR a.account_number LIKE '%' || $1
+      ORDER BY t.transaction_date DESC
+      LIMIT 20;
+
+  get_transaction_volume_summary:
+    kind: postgres-sql
+    source: finops_db
+    description: "Get overall transaction summary across all accounts: total transaction count, credits count/amount, debits count/amount, and net flow"
+    statement: |
+      SELECT 
+        COUNT(t.transaction_id) AS total_transactions,
+        COALESCE(SUM(CASE WHEN t.transaction_type = 'credit' THEN 1 ELSE 0 END), 0) AS total_credits_count,
+        COALESCE(SUM(CASE WHEN t.transaction_type = 'credit' THEN t.transaction_amount ELSE 0 END), 0) AS total_credits_amount,
+        COALESCE(SUM(CASE WHEN t.transaction_type = 'debit' THEN 1 ELSE 0 END), 0) AS total_debits_count,
+        COALESCE(SUM(CASE WHEN t.transaction_type = 'debit' THEN t.transaction_amount ELSE 0 END), 0) AS total_debits_amount,
+        (COALESCE(SUM(CASE WHEN t.transaction_type = 'credit' THEN t.transaction_amount ELSE 0 END), 0) -
+         COALESCE(SUM(CASE WHEN t.transaction_type = 'debit' THEN t.transaction_amount ELSE 0 END), 0)) AS net_flow
+      FROM transaction t;
+
+  list_banks:
+    kind: postgres-sql
+    source: finops_db
+    description: "List all registered banks in the system and their associated account count"
+    statement: |
+      SELECT 
+        b.bank_code,
+        b.bank_name,
+        COUNT(a.account_id) AS registered_accounts
+      FROM bank b
+      LEFT JOIN account a ON b.bank_code = a.bank_code
+      GROUP BY b.bank_code, b.bank_name
+      ORDER BY b.bank_code ASC;

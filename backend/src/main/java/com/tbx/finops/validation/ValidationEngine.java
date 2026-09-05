@@ -52,74 +52,63 @@ public class ValidationEngine {
         ValidationStatus status = ValidationStatus.VERIFIED;
 
         switch (toolName) {
-            case "get_vendor_spend" -> {
-                // 1. Check required fields
-                if (!record.containsKey("vendor_name") || !record.containsKey("total_spend")) {
-                    return ValidationResult.failed("Result missing required financial fields (vendor_name, total_spend).");
+            case "get_account_balance" -> {
+                if (!record.containsKey("account_id") || !record.containsKey("available_balance")) {
+                    return ValidationResult.failed("Result missing required account fields (account_id, available_balance).");
                 }
-
-                // 2. Validate numeric spend
-                BigDecimal spend = parseBigDecimal(record.get("total_spend"));
-                if (spend == null || spend.compareTo(BigDecimal.ZERO) < 0) {
-                    return ValidationResult.failed("Spend amount is invalid or negative: " + record.get("total_spend"));
+                BigDecimal balance = parseBigDecimal(record.get("available_balance"));
+                if (balance == null) {
+                    return ValidationResult.failed("Invalid numeric balance value: " + record.get("available_balance"));
                 }
-                notes.add("Spend amount validated: $" + spend);
-
-                // 3. Validate transaction count
-                Number txCount = parseNumber(record.get("transaction_count"));
-                if (txCount == null || txCount.longValue() < 0) {
-                    notes.add("Transaction count is unverified or negative.");
-                    status = ValidationStatus.WARNING;
-                } else {
-                    notes.add("Transaction count validated: " + txCount);
-                }
-
-                // 4. Validate vendor filter match if provided
-                if (filters != null && filters.containsKey("vendor_name")) {
-                    String requested = String.valueOf(filters.get("vendor_name")).trim();
-                    String actual = String.valueOf(record.get("vendor_name")).trim();
-                    if (!actual.toLowerCase().contains(requested.toLowerCase())) {
-                        notes.add("Vendor mismatch warning: requested '" + requested + "', got '" + actual + "'.");
-                        status = ValidationStatus.WARNING;
-                    }
-                }
-
-                // 5. Internal consistency
-                if (txCount != null && txCount.longValue() == 0 && spend.compareTo(BigDecimal.ZERO) > 0) {
-                    notes.add("Consistency warning: total spend is positive but transaction count is zero.");
-                    status = ValidationStatus.WARNING;
+                notes.add("Account ID validated: " + record.get("account_id"));
+                notes.add("Available balance validated: $" + balance);
+                if (record.containsKey("bank_name")) {
+                    notes.add("Bank verified: " + record.get("bank_name") + " (" + record.get("bank_code") + ")");
                 }
             }
 
-            case "get_transaction_summary" -> {
-                if (!record.containsKey("total_transactions") || !record.containsKey("total_amount")) {
-                    return ValidationResult.failed("Summary missing total_transactions or total_amount fields.");
+            case "get_bank_summary" -> {
+                if (!record.containsKey("bank_code") || !record.containsKey("total_accounts")) {
+                    return ValidationResult.failed("Summary missing bank_code or total_accounts fields.");
                 }
-                BigDecimal totalAmount = parseBigDecimal(record.get("total_amount"));
+                Number accounts = parseNumber(record.get("total_accounts"));
+                BigDecimal balance = parseBigDecimal(record.get("total_available_balance"));
+                notes.add("Bank " + record.get("bank_code") + " validated: " + accounts + " accounts, total balance: $" + balance);
+            }
+
+            case "get_transaction_by_reference" -> {
+                if (!record.containsKey("transaction_id") || !record.containsKey("transaction_amount")) {
+                    return ValidationResult.failed("Transaction missing required transaction_id or transaction_amount fields.");
+                }
+                BigDecimal amount = parseBigDecimal(record.get("transaction_amount"));
+                if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
+                    return ValidationResult.failed("Invalid or negative transaction amount: " + record.get("transaction_amount"));
+                }
+                notes.add("Transaction reference validated: " + record.get("transaction_reference_id"));
+                notes.add("Type: " + record.get("transaction_type") + ", Amount: $" + amount);
+            }
+
+            case "get_transaction_volume_summary" -> {
+                if (!record.containsKey("total_transactions") || !record.containsKey("total_credits_amount")) {
+                    return ValidationResult.failed("Summary missing total_transactions or credit/debit amount fields.");
+                }
                 Number totalTx = parseNumber(record.get("total_transactions"));
-                if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) < 0) {
-                    return ValidationResult.failed("Invalid total amount: " + record.get("total_amount"));
-                }
-                notes.add("Total transaction count: " + totalTx + ", Total amount: $" + totalAmount);
+                BigDecimal credits = parseBigDecimal(record.get("total_credits_amount"));
+                BigDecimal debits = parseBigDecimal(record.get("total_debits_amount"));
+                BigDecimal net = parseBigDecimal(record.get("net_flow"));
+                notes.add("Total transactions: " + totalTx + ", Credits: $" + credits + ", Debits: $" + debits + ", Net flow: $" + net);
             }
 
-            case "compare_vendor_periods" -> {
-                if (!record.containsKey("period1_spend") || !record.containsKey("period2_spend")) {
-                    return ValidationResult.failed("Comparison result missing period spend fields.");
-                }
-                BigDecimal p1 = parseBigDecimal(record.get("period1_spend"));
-                BigDecimal p2 = parseBigDecimal(record.get("period2_spend"));
-                BigDecimal diff = parseBigDecimal(record.get("difference"));
+            case "get_account_transactions" -> {
+                notes.add("Account transactions history retrieved successfully with " + count + " record(s).");
+            }
 
-                if (p1 != null && p2 != null && diff != null) {
-                    BigDecimal calculatedDiff = p2.subtract(p1);
-                    if (calculatedDiff.compareTo(diff) != 0) {
-                        notes.add("Arithmetic warning: period2 - period1 (" + calculatedDiff + ") differs from reported difference (" + diff + ").");
-                        status = ValidationStatus.WARNING;
-                    } else {
-                        notes.add("Period comparison arithmetic verified: P1=$" + p1 + ", P2=$" + p2 + ", Diff=$" + diff);
-                    }
-                }
+            case "get_accounts_by_entity" -> {
+                notes.add("Entity accounts retrieved successfully with " + count + " account(s).");
+            }
+
+            case "list_banks" -> {
+                notes.add("Bank registry list verified with " + count + " registered bank(s).");
             }
 
             default -> {
@@ -153,4 +142,3 @@ public class ValidationEngine {
         }
     }
 }
-

@@ -1,12 +1,12 @@
 # Google MCP Toolbox Configuration
 
-This directory contains the configuration for the [Google MCP Toolbox for Databases](https://github.com/googleapis/mcp-toolbox).
+This directory contains the configuration for the [Google MCP Toolbox for Databases](https://github.com/googleapis/mcp-toolbox) configured for the **Tiby / TransBnk Finance Assistant**.
 
 ---
 
 ## Architecture Flow
 
-The MCP Toolbox acts as an isolated Model Context Protocol server exposing database operations as parameterized, secure tools.
+The MCP Toolbox acts as an isolated Model Context Protocol server exposing PostgreSQL operations as parameterized, secure tools.
 
 ```text
 User Question
@@ -38,26 +38,37 @@ PostgreSQL Database (Port 5432)
 
 ## Defined Tools in `tools.yaml`
 
-1. **`get_vendor_spend`**
-   - **Parameters**: `vendor_name` (string)
-   - **Returns**: `vendor_name`, `total_spend`, `transaction_count`, `vendor_category`.
-2. **`get_transaction_summary`**
+1. **`get_account_balance`**
+   - **Parameters**: `identifier` (account UUID or account number or last 4 digits)
+   - **Returns**: `account_id`, `entity_id`, `account_number_masked`, `program_id`, `available_balance`, `bank_code`, `bank_name`.
+
+2. **`get_accounts_by_entity`**
+   - **Parameters**: `entity_id` (UUID of the customer/entity)
+   - **Returns**: list of accounts with bank name, masked account number, program ID, and available balance.
+
+3. **`get_bank_summary`**
+   - **Parameters**: `bank_identifier` (bank code like HDFC, ICIC, SBIN, or bank name)
+   - **Returns**: `bank_code`, `bank_name`, `total_accounts`, `total_available_balance`.
+
+4. **`get_transaction_by_reference`**
+   - **Parameters**: `reference_id` (transaction reference receipt ID, UTR number, or transaction UUID)
+   - **Returns**: `transaction_id`, `account_id`, `account_number_masked`, `bank_name`, `transaction_date`, `transaction_type`, `transaction_amount`, `description`, `transaction_reference_id`, `utr_number_masked`.
+
+5. **`get_account_transactions`**
+   - **Parameters**: `identifier` (account UUID or account number)
+   - **Returns**: Chronological list of transactions (credit and debit) for the specified account.
+
+6. **`get_transaction_volume_summary`**
    - **Parameters**: none
-   - **Returns**: `total_transactions`, `total_amount`, `total_vendors`.
-3. **`compare_vendor_periods`**
-   - **Parameters**: `vendor_name` (string), `period1` (YYYY-MM), `period2` (YYYY-MM)
-   - **Returns**: `vendor_name`, `period1_spend`, `period2_spend`, `difference`.
-4. **`get_vendor_payment_history`**
-   - **Parameters**: `vendor_name` (string)
-   - **Returns**: `vendor_name`, `paid_amount`, `payment_method`, `payment_date`, `reference_code`.
+   - **Returns**: `total_transactions`, `total_credits_count`, `total_credits_amount`, `total_debits_count`, `total_debits_amount`, `net_flow`.
+
+7. **`list_banks`**
+   - **Parameters**: none
+   - **Returns**: Full directory of registered banks with their bank codes, official names, and count of linked accounts.
 
 ---
 
-## Replacing Demo Schema with the Real TBX Dataset
+## Security & Sensitive Data Masking
 
-When the actual TBX dataset is ready:
-
-1. Replace `database/init.sql` and `database/seed.sql` with the real TBX schema and tables.
-2. Update `mcp-toolbox/tools.yaml` with the new production SQL queries and parameters matching your FinOps requirements.
-3. Restart Docker Compose (`docker compose up --build -d`).
-4. The Spring Boot backend dynamically discovers the new tools through MCP metadata and immediately exposes them to the active LLM (Groq, OpenRouter, or Sarvam) without changing application code.
+- **Account Numbers**: Transformed in SQL via `CONCAT('XXXXXX', RIGHT(account_number, 4))` so raw bank account numbers never touch LLM prompts or UI chat logs.
+- **UTR Numbers**: Protected via `CONCAT('ENC:', LEFT(utr_number, 8), '...[PROTECTED]')` ensuring encrypted transaction tracking identifiers remain secure.

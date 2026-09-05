@@ -1,50 +1,50 @@
 -- ==============================================================================
--- DEMO DATA — REPLACE WITH TBX DATASET
--- TBX FinOps Assistant - Initial Schema
+-- TBX FinOps Assistant (Tiby) - Database Schema
+-- Project: TransBnk / Tiby Finance Assistant
+-- Tables: bank, account, transaction
 -- ==============================================================================
 
--- Drop tables if they exist (for clean initialization)
-DROP TABLE IF EXISTS payments CASCADE;
-DROP TABLE IF EXISTS transactions CASCADE;
-DROP TABLE IF EXISTS vendors CASCADE;
+DROP VIEW IF EXISTS transactions CASCADE;
+DROP TABLE IF EXISTS transaction CASCADE;
+DROP TABLE IF EXISTS account CASCADE;
+DROP TABLE IF EXISTS bank CASCADE;
 
--- 1. Vendors Table
-CREATE TABLE vendors (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL UNIQUE,
-    category VARCHAR(50) NOT NULL,
-    status VARCHAR(20) DEFAULT 'ACTIVE',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- 1. Bank Table
+CREATE TABLE bank (
+    bank_code VARCHAR(10) PRIMARY KEY,
+    bank_name VARCHAR(150) NOT NULL
 );
 
--- 2. Transactions Table
-CREATE TABLE transactions (
-    id SERIAL PRIMARY KEY,
-    vendor_id INT NOT NULL REFERENCES vendors(id) ON DELETE RESTRICT,
-    amount NUMERIC(12, 2) NOT NULL CHECK (amount >= 0),
-    currency VARCHAR(3) DEFAULT 'USD',
-    description TEXT,
-    transaction_date DATE NOT NULL,
-    department VARCHAR(50) NOT NULL,
-    status VARCHAR(20) DEFAULT 'COMPLETED',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- 2. Account Table
+CREATE TABLE account (
+    account_id        VARCHAR(36) PRIMARY KEY,
+    entity_id         VARCHAR(36) NOT NULL,
+    account_number    VARCHAR(20) NOT NULL,
+    program_id        INT NOT NULL,
+    available_balance DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    bank_code         VARCHAR(10) NOT NULL REFERENCES bank(bank_code)
 );
 
--- 3. Payments Table
-CREATE TABLE payments (
-    id SERIAL PRIMARY KEY,
-    transaction_id INT NOT NULL REFERENCES transactions(id) ON DELETE RESTRICT,
-    paid_amount NUMERIC(12, 2) NOT NULL CHECK (paid_amount >= 0),
-    payment_method VARCHAR(50) NOT NULL,
-    payment_date DATE NOT NULL,
-    reference_code VARCHAR(100) NOT NULL UNIQUE,
-    status VARCHAR(20) DEFAULT 'SETTLED',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- 3. Transaction Table
+CREATE TABLE transaction (
+    transaction_id           VARCHAR(36) PRIMARY KEY,
+    account_id               VARCHAR(36) NOT NULL REFERENCES account(account_id),
+    transaction_date         TIMESTAMP(6) NOT NULL,
+    transaction_type         VARCHAR(10) NOT NULL CHECK (transaction_type IN ('credit', 'debit')),
+    description              VARCHAR(500) DEFAULT NULL,
+    transaction_amount       DECIMAL(15,2) NOT NULL DEFAULT 0.00,
+    transaction_reference_id VARCHAR(64) DEFAULT NULL,
+    utr_number               VARCHAR(256) DEFAULT NULL
 );
 
--- Indexes for performance
-CREATE INDEX idx_transactions_vendor_id ON transactions(vendor_id);
-CREATE INDEX idx_transactions_date ON transactions(transaction_date);
-CREATE INDEX idx_payments_transaction_id ON payments(transaction_id);
-CREATE INDEX idx_payments_date ON payments(payment_date);
+-- Compatibility view for plural reference
+CREATE OR REPLACE VIEW transactions AS SELECT * FROM transaction;
 
+-- Performance Indexes
+CREATE INDEX idx_account_bank_code ON account(bank_code);
+CREATE INDEX idx_account_entity_id ON account(entity_id);
+CREATE INDEX idx_account_number ON account(account_number);
+CREATE INDEX idx_transaction_account_id ON transaction(account_id);
+CREATE INDEX idx_transaction_date ON transaction(transaction_date);
+CREATE INDEX idx_transaction_ref_id ON transaction(transaction_reference_id);
+CREATE INDEX idx_transaction_type ON transaction(transaction_type);

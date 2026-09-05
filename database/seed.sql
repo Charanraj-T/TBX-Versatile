@@ -1,58 +1,44 @@
 -- ==============================================================================
--- DEMO DATA — REPLACE WITH TBX DATASET
--- TBX FinOps Assistant - Seed Data (10-20 sample records)
+-- TBX FinOps Assistant (Tiby) - Seed Data
+-- Project: TransBnk / Tiby Finance Assistant
+-- 10 rows for bank, 10 rows for account, 10 rows for transaction
 -- ==============================================================================
 
--- Insert Vendors
-INSERT INTO vendors (id, name, category, status) VALUES
-(1, 'Vendor A', 'Cloud Infrastructure', 'ACTIVE'),
-(2, 'Vendor B', 'SaaS Subscriptions', 'ACTIVE'),
-(3, 'Vendor C', 'Security & Compliance', 'ACTIVE'),
-(4, 'Vendor D', 'Consulting Services', 'ACTIVE');
+-- 1. Insert Bank Records
+INSERT INTO bank (bank_code, bank_name) VALUES
+('HDFC', 'HDFC BANK LIMITED'),
+('ICIC', 'ICICI BANK LIMITED'),
+('SBIN', 'STATE BANK OF INDIA'),
+('UTIB', 'AXIS BANK LIMITED'),
+('KKBK', 'KOTAK MAHINDRA BANK LIMITED'),
+('CNRB', 'CANARA BANK'),
+('UBIN', 'UNION BANK OF INDIA'),
+('AUBL', 'AU SMALL FINANCE BANK LIMITED'),
+('TMBL', 'TAMILNAD MERCANTILE BANK LIMITED'),
+('RATN', 'RBL BANK LIMITED');
 
--- Reset vendor sequence
-SELECT setval('vendors_id_seq', (SELECT MAX(id) FROM vendors));
+-- 2. Insert Account Records
+INSERT INTO account (account_id, entity_id, account_number, program_id, available_balance, bank_code) VALUES
+('acfbe204-7541-492c-a352-040aa984bedc', 'f2f5e332-c2d1-4555-9a6b-65c7cd195077', '50200013729069', 21, -25907487.00,  'HDFC'),
+('6f306737-dfa8-4bf7-8003-be64034b8dea', '2d52dda2-d98a-4381-af80-45bdb173860c', '50200099284137', 21, -94766029.00,  'HDFC'),
+('bfbfe347-11d6-48d7-acff-4f091f59d34b', 'e767c3c1-3a0d-43b5-b2ff-06f49bdf3de2', '39208809622308', 4,   40842693.08,  'UBIN'),
+('212239b5-63d9-4da6-aa8c-46485e0f8a42', 'ac1a0654-461b-4216-95d1-bbcb9ab6da4e', '30123456789012', 46,    109283.80,  'SBIN'),
+('34448e78-c3fe-4b5d-be8c-a45a6349b8d4', 'e984c75d-aad6-4655-823a-4e9e06a869bc', '40100556677889', 21, 231680596.77,  'UTIB'),
+('5cecd2c2-f075-4bbd-a08b-b156ca48dc7e', 'e0000005-0000-0000-0000-000000000005', '60100112233445', 4,  -131629423.33, 'HDFC'),
+('e767c3c1-3a0d-43b5-b2ff-06f49bdf3de2', '00000006-0000-0000-0000-000000000006', '70100334455667', 21,   8695000.75,  'KKBK'),
+('2d52dda2-d98a-4381-af80-45bdb173860c', '00000007-0000-0000-0000-000000000007', '80100123456789', 46,   3887946.81,  'CNRB'),
+('ac1a0654-461b-4216-95d1-bbcb9ab6da4e', '00000008-0000-0000-0000-000000000008', '90100987654321', 21,   3278516.63,  'SBIN'),
+('e984c75d-aad6-4655-823a-4e9e06a869bc', '00000009-0000-0000-0000-000000000009', '20100556677889', 46,  -117420771.35,'ICIC');
 
--- Insert Transactions
--- Vendor A: Jan ($75,000) + Feb ($50,000) = $125,000 total
-INSERT INTO transactions (id, vendor_id, amount, currency, description, transaction_date, department, status) VALUES
-(1,  1, 50000.00, 'USD', 'Compute cluster instances - us-east', '2025-01-15', 'Engineering', 'COMPLETED'),
-(2,  1, 25000.00, 'USD', 'Object storage ingress & egress',    '2025-01-28', 'Engineering', 'COMPLETED'),
-(3,  1, 30000.00, 'USD', 'Managed PostgreSQL cluster hosting', '2025-02-10', 'Data Platform', 'COMPLETED'),
-(4,  1, 20000.00, 'USD', 'CDN & network bandwidth transfer',   '2025-02-22', 'Engineering', 'COMPLETED'),
-
--- Vendor B: Jan ($15,000) + Feb ($23,500) = $38,500 total
-(5,  2, 15000.00, 'USD', 'Product analytics enterprise license', '2025-01-05', 'Product',     'COMPLETED'),
-(6,  2, 15000.00, 'USD', 'Product analytics enterprise license', '2025-02-05', 'Product',     'COMPLETED'),
-(7,  2,  8500.00, 'USD', 'Customer success seats add-on',       '2025-02-18', 'Support',     'COMPLETED'),
-
--- Vendor C: Total $44,500
-(8,  3, 12000.00, 'USD', 'SOC2 continuous monitoring platform',  '2025-01-20', 'Security',    'COMPLETED'),
-(9,  3, 14500.00, 'USD', 'Penetration testing & audit report',  '2025-02-14', 'Security',    'COMPLETED'),
-(10, 3, 18000.00, 'USD', 'Identity & access management license', '2025-03-01', 'IT Ops',      'COMPLETED'),
-
--- Vendor D: Total $12,200
-(11, 4,  5000.00, 'USD', 'Cloud FinOps advisory workshop',      '2025-01-12', 'Finance',     'COMPLETED'),
-(12, 4,  7200.00, 'USD', 'Kubernetes cost optimization review',  '2025-02-20', 'Engineering', 'COMPLETED');
-
--- Reset transactions sequence
-SELECT setval('transactions_id_seq', (SELECT MAX(id) FROM transactions));
-
--- Insert Payments
-INSERT INTO payments (id, transaction_id, paid_amount, payment_method, payment_date, reference_code, status) VALUES
-(1,  1,  50000.00, 'ACH_TRANSFER', '2025-01-20', 'PAY-2025-001', 'SETTLED'),
-(2,  2,  25000.00, 'ACH_TRANSFER', '2025-02-01', 'PAY-2025-002', 'SETTLED'),
-(3,  3,  30000.00, 'ACH_TRANSFER', '2025-02-15', 'PAY-2025-003', 'SETTLED'),
-(4,  4,  20000.00, 'ACH_TRANSFER', '2025-02-28', 'PAY-2025-004', 'SETTLED'),
-(5,  5,  15000.00, 'CORPORATE_CARD', '2025-01-06', 'PAY-2025-005', 'SETTLED'),
-(6,  6,  15000.00, 'CORPORATE_CARD', '2025-02-06', 'PAY-2025-006', 'SETTLED'),
-(7,  7,   8500.00, 'CORPORATE_CARD', '2025-02-19', 'PAY-2025-007', 'SETTLED'),
-(8,  8,  12000.00, 'WIRE_TRANSFER',  '2025-01-25', 'PAY-2025-008', 'SETTLED'),
-(9,  9,  14500.00, 'WIRE_TRANSFER',  '2025-02-20', 'PAY-2025-009', 'SETTLED'),
-(10, 10, 18000.00, 'WIRE_TRANSFER',  '2025-03-05', 'PAY-2025-010', 'SETTLED'),
-(11, 11,  5000.00, 'ACH_TRANSFER',   '2025-01-18', 'PAY-2025-011', 'SETTLED'),
-(12, 12,  7200.00, 'ACH_TRANSFER',   '2025-02-25', 'PAY-2025-012', 'SETTLED');
-
--- Reset payments sequence
-SELECT setval('payments_id_seq', (SELECT MAX(id) FROM payments));
-
+-- 3. Insert Transaction Records
+INSERT INTO transaction (transaction_id, account_id, transaction_date, transaction_type, description, transaction_amount, transaction_reference_id, utr_number) VALUES
+('001cb576-eb28-44b1-a219-0f3f27093fad', 'acfbe204-7541-492c-a352-040aa984bedc', '2026-06-24 18:24:06.000000', 'debit',  'FT -  95842568 -  50200013729069 - SELECTION ELECTRONICS   DAHISAR EAST',  14866.00,  '1715499972', 'jhI5nAdyb1qOEjmcB3JvWjC6tTO+ZPVqBFPm/GiErC4TRBWRQ5ylPG3p'),
+('0021433a-8d92-40e9-b811-5ba994747975', '6f306737-dfa8-4bf7-8003-be64034b8dea', '2026-05-14 11:31:37.000000', 'debit',  'UPI-NAVYUG SELECTION-XXXXXX8672-AUBL0002125-103293775381-260514201735136',      50000.00,  '103293775381','jhI5nAdyb1qOEjmcB3JvWjC9tzSzbvtkBlK+NSqsiL164ZK8Bl8cYg8y1l8='),
+('00baf475-8710-4d17-b626-d25fc311eb7f', '5cecd2c2-f075-4bbd-a08b-b156ca48dc7e', '2025-12-16 18:13:34.000000', 'credit', 'R/RATNR52025121600100235/ZBFLCTP405PBL15667333//SELECTRICITY TWO PRIVATE LIMITED/RATNR52025121600100235 /SELECTRICITY TWO PRIVATE LIMITED', 260000.00, 'S31125841', NULL),
+('014b7179-e696-4837-9b8e-7164d171b760', 'acfbe204-7541-492c-a352-040aa984bedc', '2026-06-24 06:39:10.000000', 'debit',  'NEFT  - UTIB0002678 - 95604250 - 915020031685136 - UMANG SELECTIONHAPURBPES DPF10129', 7959.00, 'HDFCH01078329532', 'jhI5nAdyb1qOEjmcB3JvWknJwkXCbf1jBFm1NhmQqR0EoF/PNGRDCa1+UTH2I/tV'),
+('000000ac-39c5-4eb3-9fe3-ed40ceecee5d', 'e984c75d-aad6-4655-823a-4e9e06a869bc', '2025-12-03 16:24:54.000000', 'debit',  'NEFT/000483399203/ICIC/PARESH VIKRANT GHASE',                                               9241.00,  'S5314253',  NULL),
+('04818df6-e726-4405-a8e3-4f6c15caa956', 'e767c3c1-3a0d-43b5-b2ff-06f49bdf3de2', '2026-01-02 09:58:41.000000', 'credit', 'IMPS/P2A/600228462725/UTIB/918020101986700/00/INET/9211/SELECTIONMALIGAI/ZBFLCTP5L2PBL11476675/INWD48', 36810.00, 'S69244711', NULL),
+('0178b656-4a7d-98e8-9540f6e24caf', 'ac1a0654-461b-4216-95d1-bbcb9ab6da4e', '2026-03-17 14:53:45.000000', 'debit',  'IMPS OW/507614422198/Gautam singh/SBIN/43292707719',                                          110.00,   NULL,       NULL),
+('0266384b-929c-478d-a7da-a54acf984343', 'acfbe204-7541-492c-a352-040aa984bedc', '2026-06-24 06:30:27.000000', 'debit',  'NEFT  - ICIC0001241 - 95584112 - 124105002702 - SELECTION MOBILE',                             66899.00,  'HDFCH01078324740', 'jhI5nAdyb1qOEjmcB3JvWknJwkXCbf1jBFm1NhSSrh+QRpxgqe0VEdKaiI24S8Up'),
+('02c96198-4397-4160-b5ce-607f6696f581', 'acfbe204-7541-492c-a352-040aa984bedc', '2026-06-24 06:56:01.000000', 'debit',  'NEFT  - ICIC0001241 - 95600270 - 124105002702 - SELECTION MOBILE',                             79575.00,  'HDFCH01078342174', 'jhI5nAdyb1qOEjmcB3JvWknJwkXCbf1jBFm1MBKUrRvYyGUaTtHlT1wi23x31CRl'),
+('038969bd-5941-4d13-ba9f-dda911cc0b4e', '6f306737-dfa8-4bf7-8003-be64034b8dea', '2026-05-20 09:49:02.000000', 'debit',  'FT-RERELI2010000810-RELIANCEDIGITAL RETAIL LTD   SELECT CITY SAKET DELHI',                     21156.00,  '1643797818', 'jhI5nAdyb1qOEjmcB3JvWjC7sDW9ZPtrAllbY+gS/wWLLijTRu8nX6op');
