@@ -3,9 +3,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Send, Sparkles, RotateCcw, Bot, User, AlertCircle, Loader2 } from 'lucide-react';
+import { Send, Sparkles, RotateCcw, Bot, User, AlertCircle, Loader2, Mic } from 'lucide-react';
 import type { ChatMessage } from '../lib/types';
-import { sendChatMessage } from '../lib/api';
+import { sendChatMessage, transcribeAudio } from '../lib/api';
 import { EvidenceCard } from './EvidenceCard';
 
 interface ChatBotProps {
@@ -15,11 +15,11 @@ interface ChatBotProps {
 
 const SESSION_KEY = 'tbx_finops_session_id';
 
-const SUGGESTIONS: { label: string; query: string }[] = [
-  { label: 'Check account balance', query: 'What is the available balance of account XXXXXX9069?' },
-  { label: 'Recent transactions', query: 'Show the recent transaction history for account 9069' },
-  { label: 'Monthly debits & credits', query: 'How many debit and credit transactions happened in May 2026?' },
-  { label: 'Registered banks', query: 'List all the registered banks' },
+const SUGGESTIONS: string[] = [
+  'Show my recent transactions',
+  'How many debit and credit transactions happened in May 2026?',
+  'List all the banks I bank with',
+  'What do my total debits and credits look like across all transactions?',
 ];
 
 function getSessionId(): string {
@@ -56,16 +56,21 @@ export const ChatBot: React.FC<ChatBotProps> = ({
       id: 'welcome-msg',
       role: 'assistant',
       content:
-        'Hello! I am the **Versatile FinOps** assistant.\n\nI query your vendor financial transactions and reconciliation ledger, audit spend totals via PostgreSQL, and present verified financial evidence.',
+        'Hello! I\u2019m your FinOps assistant. Ask me anything about your money \u2014 recent transactions, monthly debits and credits, or your banks \u2014 and I\u2019ll pull verified answers from your financial ledger.',
       timestamp: new Date(),
     },
   ]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [isTranscribing, setIsTranscribing] = useState(false);
 
   const hasUserMessage = messages.some((m) => m.role === 'user');
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaChunksRef = useRef<Blob[]>([]);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -129,6 +134,81 @@ export const ChatBot: React.FC<ChatBotProps> = ({
   const handleReset = () => {
     setMessages([]);
     rotateSessionId();
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const handleMicClick = async () => {
+    if (isRecording) {
+      stopRecording();
+      return;
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+      alert('Voice input is not supported in this browser. Please use a modern desktop browser.');
+      return;
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          sampleRate: 16000,
+        },
+      });
+      mediaStreamRef.current = stream;
+
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+        ? 'audio/webm;codecs=opus'
+        : 'audio/webm';
+      const recorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = recorder;
+      mediaChunksRef.current = [];
+
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) mediaChunksRef.current.push(event.data);
+      };
+
+      recorder.onstop = async () => {
+        stream.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        setIsRecording(false);
+
+        const blob = new Blob(mediaChunksRef.current, { type: mimeType });
+        mediaChunksRef.current = [];
+        if (blob.size === 0) return;
+
+        setIsTranscribing(true);
+        try {
+          const transcript = await transcribeAudio(blob);
+          if (transcript.trim()) {
+            await handleSendMessage(transcript.trim());
+          } else {
+            alert('No speech was detected. Please try again.');
+          }
+        } catch (err: any) {
+          alert(err.message || 'Could not transcribe your speech. Please try again.');
+        } finally {
+          setIsTranscribing(false);
+        }
+      };
+
+      recorder.start();
+      setIsRecording(true);
+      setTimeout(() => {
+        if (mediaRecorderRef.current?.state === 'recording') stopRecording();
+      }, 30000);
+    } catch {
+      setIsRecording(false);
+      alert('Microphone access was denied or is unavailable. Please check browser permissions.');
+    }
   };
 
   return (
@@ -231,14 +311,14 @@ export const ChatBot: React.FC<ChatBotProps> = ({
 
               {msg.id === 'welcome-msg' && !hasUserMessage && !loading && (
                 <div className="flex flex-wrap gap-2 mt-1 ml-11">
-                  {SUGGESTIONS.map((s) => (
+                  {SUGGESTIONS.map((suggestion) => (
                     <button
-                      key={s.query}
-                      onClick={() => handleSendMessage(s.query)}
+                      key={suggestion}
+                      onClick={() => handleSendMessage(suggestion)}
                       className="text-left flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white border border-slate-200 text-[11px] font-semibold text-slate-600 hover:border-blue-300 hover:text-blue-700 hover:bg-blue-50/60 shadow-2xs transition-colors"
                     >
                       <Sparkles className="w-3 h-3 text-blue-500 shrink-0" />
-                      {s.label}
+                      {suggestion}
                     </button>
                   ))}
                 </div>
@@ -277,6 +357,22 @@ export const ChatBot: React.FC<ChatBotProps> = ({
           disabled={loading}
           className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
         />
+        <button
+          type="button"
+          onClick={handleMicClick}
+          disabled={loading || isTranscribing}
+          title={isRecording ? 'Stop recording' : 'Speak your question'}
+          className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl font-semibold text-xs shadow-md transition-all flex items-center gap-1.5 shrink-0 ${
+            isRecording
+              ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse'
+              : isTranscribing
+              ? 'bg-slate-200 text-slate-500 cursor-wait'
+              : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-blue-600'
+          }`}
+        >
+          {isTranscribing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mic className="w-3.5 h-3.5" />}
+          <span className="hidden sm:inline">{isRecording ? 'Stop' : isTranscribing ? 'Transcribing' : 'Speak'}</span>
+        </button>
         <button
           type="submit"
           disabled={loading || !inputText.trim()}

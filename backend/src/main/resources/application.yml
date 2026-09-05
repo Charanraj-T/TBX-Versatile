@@ -1,10 +1,10 @@
 server:
-  port: 8080
+  port: ${PORT:8080}
 spring:
   application:
     name: tbx-finops-assistant
   datasource:
-    url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:finops}
+    url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:finops}?sslmode=${POSTGRES_SSLMODE:disable}
     username: ${POSTGRES_USER:finops}
     password: ${POSTGRES_PASSWORD:finops}
     driver-class-name: org.postgresql.Driver
@@ -40,6 +40,8 @@ app:
       api-key: ${SARVAM_API_KEY:}
       base-url: ${SARVAM_BASE_URL:https://api.sarvam.ai/v1}
       model: ${SARVAM_MODEL:sarvam-105b}
+      stt-url: ${SARVAM_STT_URL:https://api.sarvam.ai/speech-to-text}
+      stt-model: ${SARVAM_STT_MODEL:saaras:v3}
     openrouter:
       api-key: ${OPENROUTER_API_KEY:}
       base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}

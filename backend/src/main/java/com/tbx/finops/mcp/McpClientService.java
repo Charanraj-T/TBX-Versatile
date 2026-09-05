@@ -19,17 +19,25 @@ public class McpClientService {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
     private final String toolboxUrl;
+    private final String authToken;
 
     public McpClientService(
         @Value("${app.mcp.toolbox-url:http://mcp-toolbox:5000}") String toolboxUrl,
+        @Value("${app.mcp.auth-token:}") String authToken,
         ObjectMapper objectMapper
     ) {
         this.toolboxUrl = toolboxUrl.replaceAll("/+$", "");
+        this.authToken = (authToken != null && !authToken.isBlank())
+            ? authToken.trim()
+            : (System.getenv("MCP_AUTH_TOKEN") != null ? System.getenv("MCP_AUTH_TOKEN").trim() : "");
         this.objectMapper = objectMapper;
-        this.restClient = RestClient.builder()
-            .baseUrl(this.toolboxUrl)
-            .build();
-        log.info("Initialized McpClientService connecting to Google MCP Toolbox at: {}", this.toolboxUrl);
+        RestClient.Builder builder = RestClient.builder().baseUrl(this.toolboxUrl);
+        if (!this.authToken.isBlank()) {
+            builder.defaultHeader("Authorization", "Bearer " + this.authToken);
+        }
+        this.restClient = builder.build();
+        log.info("Initialized McpClientService connecting to Google MCP Toolbox at: {} (auth: {})",
+            this.toolboxUrl, this.authToken.isBlank() ? "none" : "bearer-token");
     }
 
     /**

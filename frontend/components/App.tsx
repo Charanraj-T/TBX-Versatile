@@ -10,7 +10,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<NavTab>('chat');
   const [preloadedQuery, setPreloadedQuery] = useState<string | undefined>(undefined);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
-  const [isSidebarPinned, setIsSidebarPinned] = useState(false);
+  const [isSidebarPinned, setIsSidebarPinned] = useState(true);
 
   return (
     <div className="min-h-screen bg-slate-50 flex text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-900">

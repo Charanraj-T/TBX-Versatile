@@ -21,6 +21,26 @@ export async function sendChatMessage(message: string, sessionId?: string): Prom
   return response.json();
 }
 
+export async function transcribeAudio(blob: Blob): Promise<string> {
+  const formData = new FormData();
+  formData.append('file', blob, 'recording.webm');
+
+  const response = await fetch(`${API_BASE_URL}/api/speech-to-text`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      errorData.message || `Speech-to-text failed with HTTP ${response.status}: ${response.statusText}`
+    );
+  }
+
+  const data = await response.json();
+  return data.transcript || '';
+}
+
 export async function fetchHealth(): Promise<HealthResponse> {
   const response = await fetch(`${API_BASE_URL}/api/health`, {
     method: 'GET',
