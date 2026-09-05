@@ -84,7 +84,10 @@ public class FinopsAgentService {
             }
 
             if (chatResponse != null) {
-                conversationHistoryService.append(conversationId, "assistant", chatResponse.answer());
+                if (chatResponse.answer() != null && !chatResponse.answer().contains("<|tool_call_start|>")
+                        && !chatResponse.answer().contains("<|")) {
+                    conversationHistoryService.append(conversationId, "assistant", chatResponse.answer());
+                }
                 log.info("Finished processing question with provider '{}', validation status: {}",
                         chatResponse.provider(),
                         chatResponse.evidence() != null ? chatResponse.evidence().validationStatus() : "NONE");

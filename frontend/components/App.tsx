@@ -1,14 +1,15 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import { Sidebar, type NavTab } from './Sidebar';
-import { ChatBot } from './ChatBot';
-import { DataExport } from './DataExport';
-import { Menu } from 'lucide-react';
+import { useState } from "react";
+import { Sidebar, type NavTab } from "./Sidebar";
+import { ChatBot } from "./ChatBot";
+import { DataExport, type DataExportFilters } from "./DataExport";
+import { Menu } from "lucide-react";
 
 export function App() {
-  const [activeTab, setActiveTab] = useState<NavTab>('chat');
+  const [activeTab, setActiveTab] = useState<NavTab>("chat");
   const [preloadedQuery, setPreloadedQuery] = useState<string | undefined>(undefined);
+  const [exportFilters, setExportFilters] = useState<DataExportFilters | undefined>(undefined);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [isSidebarPinned, setIsSidebarPinned] = useState(true);
 
@@ -23,7 +24,7 @@ export function App() {
         setIsPinned={setIsSidebarPinned}
       />
 
-      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isSidebarPinned ? 'lg:pl-72' : 'lg:pl-20'}`}>
+      <div className={`flex-1 flex flex-col min-w-0 transition-all duration-300 ${isSidebarPinned ? "lg:pl-72" : "lg:pl-20"}`}>
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm border-b border-slate-200 px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
@@ -34,32 +35,27 @@ export function App() {
               <Menu className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-2.5">
-              <span className="text-xs sm:text-sm font-bold text-slate-800">
-                Versatile FinOps
-              </span>
+              <span className="text-xs sm:text-sm font-bold text-slate-800">Versatile FinOps</span>
             </div>
           </div>
           <div className="flex items-center">
-            <img
-              src="/tbx-logo.png"
-              alt="TBX"
-              className="h-7 sm:h-8 w-auto object-contain select-none"
-              draggable={false}
-            />
+            <img src="/tbx-logo.png" alt="TBX" className="h-7 sm:h-8 w-auto object-contain select-none" draggable={false} />
           </div>
         </header>
 
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-          {activeTab === 'chat' && (
+          {activeTab === "chat" && (
             <ChatBot
               initialQuery={preloadedQuery}
               onClearInitialQuery={() => setPreloadedQuery(undefined)}
+              onNavigateToQueryMode={(filters) => {
+                setExportFilters(filters);
+                setActiveTab("export");
+              }}
             />
           )}
 
-          {activeTab === 'export' && (
-            <DataExport />
-          )}
+          {activeTab === "export" && <DataExport initialFilters={exportFilters} onClearInitialFilters={() => setExportFilters(undefined)} />}
         </main>
       </div>
     </div>

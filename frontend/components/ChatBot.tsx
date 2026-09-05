@@ -3,14 +3,114 @@
 import React, { useState, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { Send, Sparkles, RotateCcw, Bot, User, AlertCircle, Loader2, Mic } from "lucide-react";
-import type { ChatMessage } from "../lib/types";
+import { Send, Sparkles, RotateCcw, Bot, User, AlertCircle, Loader2, Mic, Download, FileSpreadsheet, Table as TableIcon } from "lucide-react";
+import type { ChatMessage, BreakdownColumn } from "../lib/types";
 import { sendChatMessage, transcribeAudio, resetConversation } from "../lib/api";
 import { EvidenceCard } from "./EvidenceCard";
+import { exportToCSV, exportToExcel } from "../lib/csv";
+
+export interface QueryModeFilters {
+  startDate?: string;
+  endDate?: string;
+  typeFilter?: string;
+  searchQuery?: string;
+}
 
 interface ChatBotProps {
   initialQuery?: string;
   onClearInitialQuery?: () => void;
+  onNavigateToQueryMode?: (filters: QueryModeFilters) => void;
+}
+
+function getMonthDateRange(monthStr: string): { start: string; end: string } | null {
+  const parts = monthStr.split("-");
+  if (parts.length !== 2) return null;
+  const year = parseInt(parts[0], 10);
+  const month = parseInt(parts[1], 10);
+  if (isNaN(year) || isNaN(month) || month < 1 || month > 12) return null;
+  const start = `${parts[0]}-${String(month).padStart(2, "0")}-01`;
+  const lastDay = new Date(year, month, 0).getDate();
+  const end = `${parts[0]}-${String(month).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+  return { start, end };
+}
+
+const TRANSACTION_COLUMNS: BreakdownColumn[] = [
+  { key: "index", label: "#", format: "number" },
+  { key: "dateTime", label: "Date & Time", format: "text" },
+  { key: "type", label: "Type", format: "badge" },
+  { key: "amount", label: "Amount (₹)", format: "currency" },
+  { key: "description", label: "Description", format: "text" },
+  { key: "referenceId", label: "Reference ID", format: "text" },
+];
+
+function extractTransactions(msg: ChatMessage): any[] {
+  // 1. Check financialResponse.records
+  if (msg.financialResponse?.records && Array.isArray(msg.financialResponse.records) && msg.financialResponse.records.length > 0) {
+    const first = msg.financialResponse.records[0];
+    if (first && (first.transaction_id || first.transaction_date || first.transaction_type || first.transaction_amount || first.description)) {
+      return msg.financialResponse.records.map((r, idx) => ({
+        index: idx + 1,
+        dateTime: r.transaction_date || r.date || "",
+        type: r.transaction_type ? String(r.transaction_type).charAt(0).toUpperCase() + String(r.transaction_type).slice(1) : "",
+        amount: r.transaction_amount ?? r.amount ?? "",
+        description: r.description || "",
+        referenceId: r.transaction_reference_id || r.reference_id || r.ref || "",
+      }));
+    }
+  }
+
+  // 2. Try parsing Markdown table in msg.content
+  if (!msg.content) return [];
+  const lines = msg.content
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const tableLines = lines.filter((l) => l.startsWith("|") && l.endsWith("|"));
+  if (tableLines.length >= 3) {
+    const headerCells = tableLines[0]
+      .split("|")
+      .map((c) => c.trim().toLowerCase())
+      .filter(Boolean);
+    const hasTxnHeaders =
+      headerCells.some((h) => h.includes("date") || h.includes("time")) &&
+      headerCells.some((h) => h.includes("amount") || h.includes("₹") || h.includes("inr")) &&
+      headerCells.some((h) => h.includes("type") || h.includes("desc") || h.includes("ref"));
+    if (hasTxnHeaders) {
+      const colIndices: { [key: string]: number } = {};
+      headerCells.forEach((h, idx) => {
+        if (h === "#" || h === "sl" || h === "no" || h === "id") colIndices.index = idx;
+        else if (h.includes("date") || h.includes("time")) colIndices.dateTime = idx;
+        else if (h.includes("type")) colIndices.type = idx;
+        else if (h.includes("amount") || h.includes("₹") || h.includes("inr")) colIndices.amount = idx;
+        else if (h.includes("desc")) colIndices.description = idx;
+        else if (h.includes("ref")) colIndices.referenceId = idx;
+      });
+
+      const rows: any[] = [];
+      for (let i = 2; i < tableLines.length; i++) {
+        const cells = tableLines[i]
+          .split("|")
+          .map((c) => c.trim())
+          .filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+        if (cells.length >= 3) {
+          const rawAmount = colIndices.amount !== undefined ? cells[colIndices.amount] || "" : "";
+          const cleanAmount = rawAmount.replace(/[₹,\s]/g, "");
+          const numAmount = !isNaN(Number(cleanAmount)) && cleanAmount !== "" ? Number(cleanAmount) : rawAmount;
+          rows.push({
+            index: colIndices.index !== undefined ? cells[colIndices.index] || rows.length + 1 : rows.length + 1,
+            dateTime: colIndices.dateTime !== undefined ? cells[colIndices.dateTime] || "" : "",
+            type: colIndices.type !== undefined ? cells[colIndices.type] || "" : "",
+            amount: numAmount,
+            description: colIndices.description !== undefined ? cells[colIndices.description] || "" : "",
+            referenceId: colIndices.referenceId !== undefined ? cells[colIndices.referenceId] || "" : "",
+          });
+        }
+      }
+      if (rows.length > 0) return rows;
+    }
+  }
+
+  return [];
 }
 
 const SUGGESTIONS: string[] = [
@@ -21,7 +121,7 @@ const SUGGESTIONS: string[] = [
   "What do my total debits and credits look like across all transactions?",
 ];
 
-export const ChatBot: React.FC<ChatBotProps> = ({ initialQuery, onClearInitialQuery }) => {
+export const ChatBot: React.FC<ChatBotProps> = ({ initialQuery, onClearInitialQuery, onNavigateToQueryMode }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome-msg",
@@ -240,6 +340,73 @@ export const ChatBot: React.FC<ChatBotProps> = ({ initialQuery, onClearInitialQu
                         <span>Error</span>
                       </div>
                     )}
+
+                    {!isUser &&
+                      (() => {
+                        const txns = extractTransactions(msg);
+                        if (txns.length === 0) return null;
+                        return (
+                          <div className="flex items-center justify-end gap-2 mb-3 pb-2 border-b border-slate-200/80">
+                            <span className="text-[11px] font-medium text-slate-500 mr-auto">
+                              {txns.length} transaction{txns.length === 1 ? "" : "s"}
+                            </span>
+                            <button
+                              onClick={() => {
+                                let start = "";
+                                let end = "";
+                                const month = msg.financialResponse?.evidence?.filters?.month;
+                                if (month && typeof month === "string") {
+                                  const range = getMonthDateRange(month);
+                                  if (range) {
+                                    start = range.start;
+                                    end = range.end;
+                                  }
+                                }
+                                if (!start || !end) {
+                                  const dates = txns
+                                    .map((t) => (t.dateTime ? String(t.dateTime).slice(0, 10) : ""))
+                                    .filter((d) => d.length === 10)
+                                    .sort();
+                                  if (dates.length > 0) {
+                                    start = dates[0];
+                                    end = dates[dates.length - 1];
+                                  }
+                                }
+                                const types = new Set(txns.map((t) => String(t.type).toLowerCase()));
+                                const typeFilter = types.size === 1 ? (types.has("debit") ? "debit" : types.has("credit") ? "credit" : "all") : "all";
+                                const vendor = msg.financialResponse?.evidence?.filters?.vendor_name;
+                                onNavigateToQueryMode?.({
+                                  startDate: start,
+                                  endDate: end,
+                                  typeFilter,
+                                  searchQuery: typeof vendor === "string" ? vendor : "",
+                                });
+                              }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-indigo-700 bg-white hover:bg-indigo-50 border border-slate-200 hover:border-indigo-300 rounded-lg transition-colors shadow-2xs cursor-pointer"
+                              title="View and explore in Query Mode with pre-selected filters"
+                            >
+                              <TableIcon className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>View Data</span>
+                            </button>
+                            <button
+                              onClick={() => exportToCSV(TRANSACTION_COLUMNS, txns, `transactions_${Date.now()}.csv`)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-emerald-700 bg-white hover:bg-emerald-50 border border-slate-200 hover:border-emerald-300 rounded-lg transition-colors shadow-2xs cursor-pointer"
+                              title="Download transactions as CSV"
+                            >
+                              <Download className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Export CSV</span>
+                            </button>
+                            <button
+                              onClick={() => exportToExcel(TRANSACTION_COLUMNS, txns, `transactions_${Date.now()}.xls`)}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-blue-700 bg-white hover:bg-blue-50 border border-slate-200 hover:border-blue-300 rounded-lg transition-colors shadow-2xs cursor-pointer"
+                              title="Download transactions as Excel"
+                            >
+                              <FileSpreadsheet className="w-3.5 h-3.5 text-blue-600" />
+                              <span>Export Excel</span>
+                            </button>
+                          </div>
+                        );
+                      })()}
 
                     <div className="leading-relaxed">
                       <ReactMarkdown

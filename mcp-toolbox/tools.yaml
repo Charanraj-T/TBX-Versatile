@@ -160,12 +160,29 @@ tools:
   get_monthly_transaction_summary:
     kind: postgres-sql
     source: finops_db
-    description: "Get the total debit and credit transactions (count and amount) for a specific calendar month across ALL accounts. Use this for any month-scoped question such as 'debits and credits in May', 'transactions done in May', or 'how many transactions in May'. Pass the month in YYYY-MM format (e.g. '2026-05' for May 2026)."
+    description: "Get the total debit and credit transactions (count and amount) and detail transaction records for a specific calendar month across ALL accounts. You MUST call this tool for ANY month-scoped question, including 'All transactions in June 2026', 'transactions in June', 'list transactions in May', 'debits and credits in May', or 'how many transactions in June'. Pass the month in YYYY-MM format (e.g. '2026-06' for June 2026)."
     parameters:
       - name: month
         type: string
-        description: "The calendar month in YYYY-MM format, e.g. '2026-05' for May 2026"
+        description: "The calendar month in YYYY-MM format, e.g. '2026-06' for June 2026"
     statement: |
+      WITH month_txns AS (
+        SELECT
+          t.transaction_id,
+          CONCAT('XXXXXX', RIGHT(a.account_number, 4)) AS account_number_masked,
+          a.bank_code,
+          b.bank_name,
+          TO_CHAR(t.transaction_date, 'YYYY-MM-DD HH24:MI:SS') AS transaction_date,
+          t.transaction_type,
+          t.transaction_amount,
+          t.description,
+          t.transaction_reference_id,
+          ROW_NUMBER() OVER (ORDER BY t.transaction_date DESC) AS rn
+        FROM transaction t
+        JOIN account a ON t.account_id = a.account_id
+        JOIN bank b ON a.bank_code = b.bank_code
+        WHERE TO_CHAR(t.transaction_date, 'YYYY-MM') = $1
+      )
       SELECT
         COUNT(t.transaction_id) AS total_transactions,
         COALESCE(SUM(CASE WHEN t.transaction_type = 'credit' THEN 1 ELSE 0 END), 0) AS total_credits_count,
@@ -173,7 +190,19 @@ tools:
         COALESCE(SUM(CASE WHEN t.transaction_type = 'debit' THEN 1 ELSE 0 END), 0) AS total_debits_count,
         COALESCE(SUM(CASE WHEN t.transaction_type = 'debit' THEN t.transaction_amount ELSE 0 END), 0) AS total_debits_amount,
         (COALESCE(SUM(CASE WHEN t.transaction_type = 'credit' THEN t.transaction_amount ELSE 0 END), 0) -
-         COALESCE(SUM(CASE WHEN t.transaction_type = 'debit' THEN t.transaction_amount ELSE 0 END), 0)) AS net_flow
+         COALESCE(SUM(CASE WHEN t.transaction_type = 'debit' THEN t.transaction_amount ELSE 0 END), 0)) AS net_flow,
+        (SELECT COALESCE(json_agg(json_build_object(
+          'transaction_id', d.transaction_id,
+          'account_number_masked', d.account_number_masked,
+          'bank_code', d.bank_code,
+          'bank_name', d.bank_name,
+          'transaction_date', d.transaction_date,
+          'transaction_type', d.transaction_type,
+          'transaction_amount', d.transaction_amount,
+          'description', d.description,
+          'transaction_reference_id', d.transaction_reference_id
+        )), '[]'::json)
+        FROM (SELECT * FROM month_txns WHERE rn <= 50) d) AS detail_rows
       FROM transaction t
       WHERE TO_CHAR(t.transaction_date, 'YYYY-MM') = $1;
 
@@ -268,7 +297,7 @@ tools:
       FROM account a
       JOIN bank b ON a.bank_code = b.bank_code
       LEFT JOIN transaction t ON t.account_id = a.account_id
-      WHERE ($1 IS NULL OR $1 = '' OR a.bank_code ILIKE $1)
+      WHERE ($1::text IS NULL OR $1::text = '' OR a.bank_code ILIKE $1::text)
       GROUP BY a.account_id, a.account_number, a.bank_code, b.bank_name, a.available_balance
       HAVING ABS(a.available_balance - COALESCE(SUM(CASE WHEN t.transaction_type = 'credit' THEN t.transaction_amount ELSE -t.transaction_amount END), 0)) > 0.01
       ORDER BY ABS(a.available_balance - COALESCE(SUM(CASE WHEN t.transaction_type = 'credit' THEN t.transaction_amount ELSE -t.transaction_amount END), 0)) DESC;
