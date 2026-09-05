@@ -1,262 +1,211 @@
-# TBX FinOps Assistant — Production Starter Repository
+# TBX Finance Assistant — Enterprise Finance Ops Copilot
 
-A production-structured starter package for the **TBX FinOps Assistant**, built with **Next.js 14**, **Java 21 & Spring Boot 3.4** (Spring AI), **Groq LLM API** (`openai/gpt-oss-20b`), **Google MCP Toolbox for Databases**, and **PostgreSQL**.
+A production-grade conversational finance assistant built for the **TBX BVP Tech Catalyst Hackathon**. Features a dual-view workspace (Chat Copilot + Manual Audit Dashboard), deterministic compute-then-synthesize architecture, and full OpenTelemetry observability.
+
+**Model**: `liquid/lfm-2.5-2.6b:free` (2.6B params via OpenRouter) — Zero math in the LLM 
+**Database**: PostgreSQL 16 with `pg_trgm` + composite B-tree indexes for 20M-record efficiency 
+**Observability**: Micrometer Tracing → OpenTelemetry → Langfuse
 
 ---
 
-## 1. Architecture
+## Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────┐
-│                 Next.js Frontend (Port 3000)                │
-│                                                             │
-│  Chat Interface • History • Evidence Drawer • Health Badges │
-└──────────────────────────────┬──────────────────────────────┘
-                               │ HTTP REST (/api/chat, /api/health)
+┌───────────────────────────────────────────────────────────────────────┐
+│              Next.js 15 / React 19 Frontend (Port 3000)             │
+│                                                                     │
+│  View A: 💬 Conversational Copilot    View B: 📊 Manual Dashboard  │
+│  • Inline Citations [Ref: xxx]        • Filter Bar (Bank/Date/Type) │
+│  • Confidence Badges (🟢🟡🔴)          • Reconciliation Table       │
+│  • Anomaly Alerts                     • 1-Click CSV Export          │
+│  • Explainability Drawer              • Pagination                  │
+└──────────────────────────────┬────────────────────────────────────────┘
+                               │ REST API
                                ▼
-┌─────────────────────────────────────────────────────────────┐
-│                Spring Boot API (Port 8080)                  │
-│                                                             │
-│  Controllers • FinopsAgentService • ValidationEngine        │
-│  EvidenceBuilder • Spring AI MCP Client / HTTP Transport    │
-└──────────────┬──────────────────────────────┬───────────────┘
-               │                              │
-               │ REST / JSON-RPC              │ Streamable HTTP / SSE
-               ▼                              ▼
-┌──────────────────────────────┐  ┌───────────────────────────┐
-│     Groq LLM API             │  │   Google MCP Toolbox      │
-│   (openai/gpt-oss-20b)       │  │   (Port 5000)             │
-│   Fast Tool Calling via LPU  │  │   Parameterized SQL Tools │
-└──────────────────────────────┘  └─────────────┬─────────────┘
-                                                │
-                                                │ PostgreSQL (Port 5432)
-                                                ▼
-                                  ┌───────────────────────────┐
-                                  │      PostgreSQL DB        │
-                                  │  (Banking & Transactions) │
-                                  └───────────────────────────┘
-```
-
-### Key Architectural Tenets
-
-1. **Separation of Concerns**: The LLM never connects directly to PostgreSQL and cannot execute arbitrary raw SQL.
-2. **Deterministic Financial Math**: Calculations and aggregations are executed by PostgreSQL queries inside the Google MCP Toolbox and validated by `ValidationEngine` before answer formulation. The LLM never computes financial numbers directly.
-3. **Traceable Evidence**: Every assistant response includes an immutable `EvidenceObject` capturing source, tool invoked, query parameters, executed calculation, live result data, record count, and validation status.
-4. **Live Tool-Calling**: Connects to the Groq LLM API with dynamic tool definitions synced directly from `mcp-toolbox/tools.yaml`.
-
----
-
-## 2. Repository Structure
-
-```text
-tbx-finops-assistant/
-├── frontend/                     # Next.js 14 chat interface & Tailwind UI
-│   ├── app/                      # Next.js App Router (layout, page, CSS)
-│   ├── components/               # ChatInterface, EvidenceCard, HealthBadge, etc.
-│   ├── lib/                      # Typed API client and models
-│   ├── package.json
-│   └── Dockerfile
-│
-├── backend/                      # Java 21 + Spring Boot 3.4 microservice
-│   ├── src/main/java/com/tbx/finops/
-│   │   ├── controller/           # REST endpoints (/api/chat, /api/health)
-│   │   ├── agent/                # FinopsAgentService, GroqAgentService, OpenRouterAgentService, SarvamAgentService
-│   │   ├── mcp/                  # Google MCP Toolbox Client (Streamable HTTP & SSE)
-│   │   ├── validation/           # ValidationEngine, ValidationResult, ValidationStatus
-│   │   ├── evidence/             # EvidenceObject, EvidenceBuilder
-│   │   ├── model/                # Request / Response DTOs
-│   │   └── config/               # CORS, Error handlers, AI configs
-│   ├── src/main/resources/       # application.yml
-│   ├── pom.xml                   # Maven dependencies (Spring Boot 3.4.2, Java 21)
-│   └── Dockerfile
-│
-├── mcp-toolbox/                  # Google MCP Toolbox Configuration
-│   ├── tools.yaml                # Parameterized SQL tools mapping to Postgres
-│   └── README.md
-│
-├── database/                     # PostgreSQL Initialization & Seeds
-│   ├── init.sql                  # bank, account, transaction schema
-│   └── seed.sql                  # Seed records for Banks, Accounts, Transactions
-│
-├── docker-compose.yml            # Multi-container local orchestration
-├── .env.example                  # Environment configuration template
-├── .gitignore
-└── README.md
+┌───────────────────────────────────────────────────────────────────────┐
+│                   Spring Boot 3.4 API (Port 8080)                   │
+│                                                                     │
+│  ChatController → FinopsAgentService → ConfidenceEngine             │
+│  ConversationHistoryService (follow-up memory within a session)    │
+│  OpenRouterAgentService → VerifiedAnswerFormatter (answer synthesis) │
+│  FinopsDataController → JdbcTemplate (transactions export)         │
+│                                                                     │
+│  Micrometer Tracing ──→ OpenTelemetry ──→ Langfuse (OTLP Export)    │
+└──────────┬───────────────────────────────────────┬───────────────────┘
+           │ REST / JSON-RPC                       │ JDBC
+           ▼                                       ▼
+┌──────────────────────────┐         ┌──────────────────────────────┐
+│   Google MCP Toolbox     │         │      PostgreSQL 16           │
+│   (Port 5000)            │         │      (Port 5432)             │
+│   12 Parameterized SQL   │────────→│  pg_trgm + B-tree Indexes   │
+│   Tools via tools.yaml   │         │  bank / account / transaction│
+└──────────────────────────┘         └──────────────────────────────┘
+           ↑
+           │ Tool Definitions + Calls
+┌──────────────────────────┐
+│   OpenRouter LLM API     │
+│   liquid/lfm-2.5-2.6b    │
+│   (Intent + Parameters)  │
+└──────────────────────────┘
 ```
 
 ---
 
-## 3. Quick Start (Local Setup)
+## Quick Start
 
 ### Prerequisites
-
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) (running)
+- OpenRouter API Key (free at [openrouter.ai](https://openrouter.ai))
 
 ### 1. Configure Environment
-
-Copy `.env.example` to `.env` and provide your Groq API key:
-
 ```bash
 cp .env.example .env
 ```
 
-Ensure `.env` contains:
-
+Edit `.env`:
 ```env
-AI_PROVIDER=groq
-GROQ_API_KEY=gsk_your_actual_groq_api_key_here
-GROQ_BASE_URL=https://api.groq.com/openai/v1
-GROQ_MODEL=openai/gpt-oss-20b
+AI_PROVIDER=openrouter
+OPENROUTER_API_KEY=sk-or-v1-your_key_here
+OPENROUTER_MODEL=liquid/lfm-2.5-2.6b:free
 ```
 
 ### 2. Launch with Docker Compose
-
 ```bash
 docker compose up --build -d
 ```
 
-This starts all 4 containers:
-
-- `tbx-postgres`: PostgreSQL database with banking schema & seed records
-- `tbx-mcp-toolbox`: Google MCP Toolbox server on port 5000
-- `tbx-backend`: Spring Boot backend on port 8080
-- `tbx-frontend`: Next.js web application on port 3000
-
 ### 3. Access Services
+| Service | URL |
+|---------|-----|
+| **Frontend UI** | http://localhost:3000 |
+| **Backend API** | http://localhost:8080 |
+| **Health Check** | http://localhost:8080/api/health |
+| **MCP Toolbox** | http://localhost:5000 |
+| **PostgreSQL** | localhost:5432 (finops/finops) |
 
-- **Frontend UI**: [http://localhost:3000](http://localhost:3000)
-- **Backend API**: [http://localhost:8080](http://localhost:8080)
-- **Health Check**: [http://localhost:8080/api/health](http://localhost:8080/api/health)
-- **MCP Toolbox**: [http://localhost:5000](http://localhost:5000)
-- **PostgreSQL**: `localhost:5432` (`finops` / `finops`)
+### Local Development (Without Docker)
+```bash
+# Terminal 1: Database
+docker compose up postgres mcp-toolbox -d
+
+# Terminal 2: Backend
+cd backend
+mvn spring-boot:run
+
+# Terminal 3: Frontend
+cd frontend
+npm install && npm run dev
+```
 
 ---
 
-## 4. Testing Financial & Banking Questions
+## 7 Benchmark Q&As
 
-You can test these in the Next.js UI ([http://localhost:3000](http://localhost:3000)) or via `curl`:
-
-### 1. Account Available Balance:
-```bash
-curl -s -X POST http://localhost:8080/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What is the available balance for account acfbe204-7541-492c-a352-040aa984bedc?"}' | jq .
+### 1. Vendor Spend Analysis
 ```
-_Expected_: Account balance of **-₹25,907,487.00** (HDFC Bank, Masked: `XXXXXX9069`). Tool: `get_account_balance`.
-
-### 2. Transaction Reference Number Lookup:
-```bash
-curl -s -X POST http://localhost:8080/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Find details for transaction reference 1715499972"}' | jq .
+Q: What is the total spend on SELECTION ELECTRONICS in June 2026?
+A: Total debit payouts to SELECTION ELECTRONICS in June 2026 reached ₹1,69,299.00
+   across 4 transactions. All processed via HDFC Bank.
+   🟢 HIGH CONFIDENCE (95-98%) — 100% Grounded, Exact Entity & Explicit Period
 ```
-_Expected_: Debit of **₹14,866.00** for Selection Electronics Dahisar East with protected UTR. Tool: `get_transaction_by_reference`.
 
-### 3. Bank Account & Balance Summary:
-```bash
-curl -s -X POST http://localhost:8080/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "How many accounts do we have in HDFC Bank and what is our total balance?"}' | jq .
+### 2. Balance Reconciliation
 ```
-_Expected_: **3 accounts** in HDFC Bank Limited with total balance of **-₹252,302,939.33**. Tool: `get_bank_summary`.
+Q: Show unreconciled accounts in HDFC Bank
+A: Found 3 unreconciled HDFC accounts with significant discrepancies between
+   available balance and calculated ledger balance. Largest discrepancy:
+   Account XXXXXX9069 — ₹25,907,487.00 gap.
+   🟢 HIGH CONFIDENCE — Direct reconciliation query
+```
 
-### 4. Overall Transaction Volume & Net Flow:
-```bash
-curl -s -X POST http://localhost:8080/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "What is the overall transaction volume summary across credits and debits?"}' | jq .
+### 3. Period Comparison
 ```
-_Expected_: 10 transactions (2 Credits totaling ₹296,810.00, 8 Debits totaling ₹249,806.00, Net flow +₹47,004.00). Tool: `get_transaction_volume_summary`.
+Q: Compare SELECTION MOBILE spend between May and June 2026
+A: Period 1 (May 2026): ₹0.00 | Period 2 (June 2026): ₹1,46,474.00
+   Delta: +₹1,46,474.00 (new vendor activity in June)
+   🟡 MEDIUM CONFIDENCE — No historical baseline for May
+```
 
-### 5. Registered Banks Registry:
-```bash
-curl -s -X POST http://localhost:8080/api/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "List all registered banks in the system"}' | jq .
+### 4. Anomaly Detection
 ```
-_Expected_: Full table of 10 registered banks (HDFC, ICIC, SBIN, UTIB, KKBK, CNRB, UBIN, AUBL, TMBL, RATN) with linked accounts count. Tool: `list_banks`.
+Q: Detect anomalous transactions for SELECTION in 2026
+A: ⚠️ Anomaly Detected: Transaction 0266384b (₹66,899.00) is 280% higher
+   than the historical average of ₹17,588.40.
+   🟢 HIGH CONFIDENCE — Statistical Z-score analysis
+```
+
+### 5. Transaction Lookup
+```
+Q: Find details for transaction reference 1715499972
+A: Debit of ₹14,866.00 for SELECTION ELECTRONICS DAHISAR EAST via HDFC Bank.
+   Account: XXXXXX9069. UTR: ENC:jhI5nAdy...[PROTECTED]
+   🟢 HIGH CONFIDENCE — Exact reference match
+```
+
+### 6. Bank Summary
+```
+Q: How many accounts in HDFC Bank and what is total balance?
+A: 3 accounts in HDFC BANK LIMITED. Total balance: -₹252,302,939.33
+   🟢 HIGH CONFIDENCE — Direct aggregation
+```
+
+### 7. Transaction Volume
+```
+Q: Overall transaction volume summary
+A: 10 transactions total. Credits: 2 (₹2,96,810.00). Debits: 8 (₹2,49,806.00).
+   Net flow: +₹47,004.00
+   🟢 HIGH CONFIDENCE — Complete dataset scan
+```
 
 ---
 
-## 5. AI Provider Configuration
+## Security Features
 
-The assistant uses live LLM tool-calling:
-
-### A. Groq API (Default / Active)
-
-Groq provides ultra-low latency inference with OpenAI-compatible tool calling.
-
-1. In `.env`:
-   ```env
-   AI_PROVIDER=groq
-   GROQ_API_KEY=gsk_...
-   GROQ_BASE_URL=https://api.groq.com/openai/v1
-   GROQ_MODEL=openai/gpt-oss-20b
-   ```
-2. Restart the backend container:
-   ```bash
-   docker compose restart backend
-   ```
-3. When queries arrive:
-   - Tool definitions are dynamically retrieved from Google MCP Toolbox (`tools/list`).
-   - Groq receives the prompt and tool definitions.
-   - Groq invokes the matching tool with structured parameters.
-   - The backend runs the tool on Google MCP Toolbox (`tools/call`).
-   - Results pass through `ValidationEngine` (checking field presence, non-negative numbers, arithmetic integrity).
-   - A second turn call to Groq synthesizes a clean, professional financial explanation.
-   - An immutable `EvidenceObject` is attached with `validationStatus: VERIFIED`.
-
-### B. OpenRouter API (Access Any Foundation Model)
-
-OpenRouter provides access to Claude 3.5 Sonnet, Llama 3.3 70B, DeepSeek Chat/R1, GPT-4o, and hundreds of other foundation models with unified OpenAI-compatible tool calling.
-
-1. In `.env`:
-   ```env
-   AI_PROVIDER=openrouter
-   OPENROUTER_API_KEY=sk-or-v1-your_openrouter_key_here
-   OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-   OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct
-   ```
-2. Restart the backend container:
-   ```bash
-   docker compose restart backend
-   ```
-3. OpenRouter receives MCP tool schemas from Google MCP Toolbox, invokes tools, passes data through `ValidationEngine`, and returns verified financial evidence.
-
-### C. Sarvam AI (Alternative)
-
-To switch to Sarvam AI, set `AI_PROVIDER=sarvam` and provide `SARVAM_API_KEY`, `SARVAM_BASE_URL`, and `SARVAM_MODEL` in `.env`.
+- **No Dynamic SQL**: every tool is a fixed parameterized query in `tools.yaml`; the LLM can only supply parameter values, never SQL text
+- **Read-Only Tool Surface**: the toolbox exposes only SELECT-style insights (balances, transactions, summaries) — no transfer/wire/delete operations exist
+- **PII Masking**: Account numbers → XXXXXX + last 4 digits, UTR numbers → encrypted prefix only
+- **Parameterized Queries Only**: all queries via MCP Toolbox parameterized tools
 
 ---
 
-## 6. How Spring AI Connects to Google MCP Toolbox
+## Observability (OpenTelemetry → Langfuse) — Optional
 
-- The **Google MCP Toolbox** (`us-central1-docker.pkg.dev/database-toolbox/toolbox/toolbox:latest`) runs on port `5000` within Docker Compose.
-- The Spring Boot backend connects via HTTP JSON-RPC and Streamable HTTP to `http://mcp-toolbox:5000/mcp`.
-- Tool discovery is performed dynamically via `tools/list`, and tool calls are dispatched via `tools/call`.
-- The backend's `McpClientService` provides complete isolation, error handling, and audit logging.
+Every query generates an end-to-end trace span:
+1. Prompt received → Tool planned by LLM → SQL executed via MCP → Response synthesized
+2. Traces export to Langfuse via OTLP endpoint
+3. Each response includes `traceId` and `langfuseUrl` for direct trace inspection
 
----
+Langfuse is an **optional** profile. The backend runs normally with or without credentials — when keys are absent, tracing simply stays off and no external calls are made.
 
-## 7. Replacing Test Data with the Real TBX Dataset
+**Docker Compose** — auto-enabled: the `langfuse` profile activates automatically whenever `LANGFUSE_PUBLIC_KEY` is set in `.env`:
 
-When the official TBX dataset and requirements arrive:
-
-```text
-database/
-   ↓
-1. Replace init.sql & seed.sql with TBX schema & production data
-   ↓
-2. Update mcp-toolbox/tools.yaml with new SQL queries & parameters
-   ↓
-3. Application code (Spring Boot & Next.js) remains unchanged!
+```env
+LANGFUSE_PUBLIC_KEY=pk-lf-xxx
+LANGFUSE_SECRET_KEY=sk-lf-xxx
+# Base64 of "public_key:secret_key": echo -n "pk-lf-xxx:sk-lf-xxx" | base64
+LANGFUSE_AUTH_HEADER=<base64>
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
 ```
 
-1. **Update Schema & Seed**:
-   - Edit `database/init.sql` to define your actual tables.
-   - Edit `database/seed.sql` to insert actual seed/migration records.
-2. **Update Tools**:
-   - Edit `mcp-toolbox/tools.yaml` with your new queries, parameter types, and descriptions.
-3. **Rebuild**:
-   - Run `docker compose down -v && docker compose up --build -d`.
-   - The MCP Toolbox automatically exposes the new tools, and the backend dynamically discovers them without requiring code modifications.
+**Local dev (without Docker)** — activate manually:
+
+```bash
+SPRING_PROFILES_ACTIVE=langfuse mvn spring-boot:run
+```
+
+To disable again, clear the keys (Compose) or drop `SPRING_PROFILES_ACTIVE` (local).
+
+---
+
+## Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | Next.js 14, React 18, Tailwind CSS, Lucide Icons |
+| Backend | Java 21, Spring Boot 3.4, Spring AI, Micrometer |
+| LLM | liquid/lfm-2.5-2.6b:free via OpenRouter (2.6B params) |
+| Database | PostgreSQL 16 with pg_trgm + composite indexes |
+| MCP | Google MCP Toolbox for Databases |
+| Observability | OpenTelemetry → Langfuse |
+| Conversation Memory | PostgreSQL-backed history (12-message window) |
+| Containers | Docker Compose (4 services) |

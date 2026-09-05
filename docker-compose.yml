@@ -59,7 +59,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-finops}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-finops}
       MCP_TOOLBOX_URL: http://mcp-toolbox:5000
-      AI_PROVIDER: ${AI_PROVIDER:-groq}
+      AI_PROVIDER: ${AI_PROVIDER:-openrouter}
       GROQ_API_KEY: ${GROQ_API_KEY:-}
       GROQ_BASE_URL: ${GROQ_BASE_URL:-https://api.groq.com/openai/v1}
       GROQ_MODEL: ${GROQ_MODEL:-openai/gpt-oss-20b}
@@ -68,8 +68,17 @@ services:
       SARVAM_MODEL: ${SARVAM_MODEL:-sarvam-105b}
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
-      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-meta-llama/llama-3.3-70b-instruct}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-liquid/lfm-2.5-2.6b:free}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      # Langfuse observability is OPTIONAL:
+      #  - the 'langfuse' Spring profile activates only when LANGFUSE_PUBLIC_KEY is set
+      #  - without credentials the backend runs normally and simply skips trace export
+      SPRING_PROFILES_ACTIVE: ${LANGFUSE_PUBLIC_KEY:+langfuse}
+      LANGFUSE_PUBLIC_KEY: ${LANGFUSE_PUBLIC_KEY:-}
+      LANGFUSE_SECRET_KEY: ${LANGFUSE_SECRET_KEY:-}
+      LANGFUSE_AUTH_HEADER: ${LANGFUSE_AUTH_HEADER:-}
+      LANGFUSE_BASE_URL: ${LANGFUSE_BASE_URL:-https://cloud.langfuse.com}
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-https://cloud.langfuse.com/api/public/otel}
     ports:
       - "8080:8080"
     depends_on:

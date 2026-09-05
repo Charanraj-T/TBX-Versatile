@@ -14,8 +14,10 @@ public class EvidenceBuilder {
     private String tool;
     private Map<String, Object> filters = Collections.emptyMap();
     private String calculation;
+    private String sqlQuery;
     private Object result;
     private Integer recordCount = 0;
+    private long executionTimeMs = 0L;
     private ValidationStatus validationStatus = ValidationStatus.WARNING;
     private List<String> validationNotes = Collections.emptyList();
     private Instant timestamp = Instant.now();
@@ -54,6 +56,16 @@ public class EvidenceBuilder {
         return this;
     }
 
+    public EvidenceBuilder sqlQuery(String sqlQuery) {
+        this.sqlQuery = sqlQuery;
+        return this;
+    }
+
+    public EvidenceBuilder executionTimeMs(long executionTimeMs) {
+        this.executionTimeMs = executionTimeMs;
+        return this;
+    }
+
     public EvidenceBuilder recordCount(Integer recordCount) {
         this.recordCount = recordCount;
         return this;
@@ -84,8 +96,10 @@ public class EvidenceBuilder {
             tool,
             filters,
             calculation,
+            sqlQuery,
             result,
             recordCount,
+            executionTimeMs,
             validationStatus,
             validationNotes,
             timestamp != null ? timestamp : Instant.now()

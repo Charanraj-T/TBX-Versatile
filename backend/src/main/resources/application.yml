@@ -30,7 +30,7 @@ spring:
               endpoint: /mcp
 app:
   ai:
-    provider: ${AI_PROVIDER:groq}
+    provider: ${AI_PROVIDER:openrouter}
     history-window-messages: ${HISTORY_WINDOW_MESSAGES:12}
     groq:
       api-key: ${GROQ_API_KEY:}
@@ -45,7 +45,7 @@ app:
     openrouter:
       api-key: ${OPENROUTER_API_KEY:}
       base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
-      model: ${OPENROUTER_MODEL:meta-llama/llama-3.3-70b-instruct}
+      model: ${OPENROUTER_MODEL:liquid/lfm-2.5-2.6b:free}
       site-url: ${FRONTEND_URL:http://localhost:3000}
       app-name: "TBX FinOps Assistant"
   mcp:
@@ -53,6 +53,11 @@ app:
     timeout-seconds: 10
   cors:
     allowed-origin: ${FRONTEND_URL:http://localhost:3000}
+  langfuse:
+    base-url: ${LANGFUSE_BASE_URL:https://cloud.langfuse.com}
+    public-key: ${LANGFUSE_PUBLIC_KEY:}
+# Langfuse/OpenTelemetry export config lives in the optional 'langfuse' profile
+# (application-langfuse.yml) so the app runs fine without credentials.
 management:
   endpoints:
     web:

@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Send, Sparkles, RotateCcw, Bot, User, AlertCircle, Loader2, Mic } from 'lucide-react';
 import type { ChatMessage } from '../lib/types';
-import { sendChatMessage, transcribeAudio } from '../lib/api';
+import { sendChatMessage, transcribeAudio, resetConversation } from '../lib/api';
 import { EvidenceCard } from './EvidenceCard';
 
 interface ChatBotProps {
@@ -13,39 +13,12 @@ interface ChatBotProps {
   onClearInitialQuery?: () => void;
 }
 
-const SESSION_KEY = 'tbx_finops_session_id';
-
 const SUGGESTIONS: string[] = [
   'Show my recent transactions',
   'How many debit and credit transactions happened in May 2026?',
   'List all the banks I bank with',
   'What do my total debits and credits look like across all transactions?',
 ];
-
-function getSessionId(): string {
-  let id = '';
-  try {
-    id = localStorage.getItem(SESSION_KEY) || '';
-  } catch {
-  }
-  if (!id) {
-    id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `session-${Date.now()}`;
-    try {
-      localStorage.setItem(SESSION_KEY, id);
-    } catch {
-    }
-  }
-  return id;
-}
-
-function rotateSessionId(): string {
-  const id = typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : `session-${Date.now()}`;
-  try {
-    localStorage.setItem(SESSION_KEY, id);
-  } catch {
-  }
-  return id;
-}
 
 export const ChatBot: React.FC<ChatBotProps> = ({
   initialQuery,
@@ -103,15 +76,25 @@ export const ChatBot: React.FC<ChatBotProps> = ({
     setLoading(true);
 
     try {
-      const data = await sendChatMessage(text, getSessionId());
+      const data = await sendChatMessage(text);
       setMessages((prev) => [
         ...prev,
         {
           id: `bot-${Date.now()}`,
           role: 'assistant',
-          content: data.answer,
-          evidence: data.evidence,
-          provider: data.provider,
+          content: data.answer.headline,
+          evidence: data.evidence
+            ? {
+                tool: data.evidence.toolExecuted,
+                filters: data.evidence.filters,
+                recordCount: data.evidence.recordsCount,
+                source: 'PostgreSQL via Google MCP Toolbox',
+                validationStatus: data.evidence.isVerified ? 'VERIFIED' : 'WARNING',
+                validationNotes: data.confidence?.disclaimer ? [data.confidence.disclaimer] : undefined,
+              }
+            : undefined,
+          provider: data.evidence?.modelEfficiency?.model,
+          financialResponse: data,
           timestamp: new Date(),
         },
       ]);
@@ -133,7 +116,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({
 
   const handleReset = () => {
     setMessages([]);
-    rotateSessionId();
+    resetConversation();
   };
 
   const stopRecording = () => {

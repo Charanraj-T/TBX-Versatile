@@ -1,0 +1,23 @@
+# Optional "langfuse" profile — Langfuse observability via OpenTelemetry.
+# Activate only when Langfuse credentials are present, otherwise tracing stays off
+# and the app runs fine without external calls.
+#
+# Docker: auto-activated by docker-compose.yml when LANGFUSE_PUBLIC_KEY is set.
+# Local:  SPRING_PROFILES_ACTIVE=langfuse ./mvnw spring-boot:run
+management:
+  tracing:
+    sampling:
+      probability: 1.0
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:https://cloud.langfuse.com/api/public/otel}
+      headers:
+        Authorization: "Basic ${LANGFUSE_AUTH_HEADER:}"
+
+spring:
+  ai:
+    openai:
+      chat:
+        observations:
+          include-prompt: true
+          include-completion: true

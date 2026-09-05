@@ -6,9 +6,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.net.http.HttpClient;
+import java.time.Duration;
 import java.util.*;
 
 @Service
@@ -24,6 +27,7 @@ public class McpClientService {
     public McpClientService(
         @Value("${app.mcp.toolbox-url:http://mcp-toolbox:5000}") String toolboxUrl,
         @Value("${app.mcp.auth-token:}") String authToken,
+        @Value("${app.mcp.timeout-seconds:10}") int timeoutSeconds,
         ObjectMapper objectMapper
     ) {
         this.toolboxUrl = toolboxUrl.replaceAll("/+$", "");
@@ -31,13 +35,21 @@ public class McpClientService {
             ? authToken.trim()
             : (System.getenv("MCP_AUTH_TOKEN") != null ? System.getenv("MCP_AUTH_TOKEN").trim() : "");
         this.objectMapper = objectMapper;
-        RestClient.Builder builder = RestClient.builder().baseUrl(this.toolboxUrl);
+
+        JdkClientHttpRequestFactory requestFactory = new JdkClientHttpRequestFactory(
+            HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(timeoutSeconds)).build()
+        );
+        requestFactory.setReadTimeout(Duration.ofSeconds(timeoutSeconds));
+
+        RestClient.Builder builder = RestClient.builder()
+            .baseUrl(this.toolboxUrl)
+            .requestFactory(requestFactory);
         if (!this.authToken.isBlank()) {
             builder.defaultHeader("Authorization", "Bearer " + this.authToken);
         }
         this.restClient = builder.build();
-        log.info("Initialized McpClientService connecting to Google MCP Toolbox at: {} (auth: {})",
-            this.toolboxUrl, this.authToken.isBlank() ? "none" : "bearer-token");
+        log.info("Initialized McpClientService connecting to Google MCP Toolbox at: {} (timeout: {}s, auth: {})",
+            this.toolboxUrl, timeoutSeconds, this.authToken.isBlank() ? "none" : "bearer-token");
     }
 
     /**
@@ -114,6 +126,7 @@ public class McpClientService {
      */
     public McpToolExecutionResult executeTool(String toolName, Map<String, Object> arguments) {
         log.info("Executing MCP tool '{}' with arguments: {}", toolName, arguments);
+        long startNanos = System.nanoTime();
         try {
             Map<String, Object> params = new HashMap<>();
             params.put("name", toolName);
@@ -196,11 +209,15 @@ public class McpClientService {
                 return McpToolExecutionResult.error(toolName, rawText.isEmpty() ? "Tool execution error" : rawText);
             }
 
-            return McpToolExecutionResult.success(toolName, parsedData, rawText);
+            return McpToolExecutionResult.success(toolName, parsedData, rawText, elapsedMs(startNanos));
         } catch (Exception e) {
             log.error("Failed to execute MCP tool '{}': {}", toolName, e.getMessage());
             return McpToolExecutionResult.error(toolName, "Communication failure with MCP Toolbox: " + e.getMessage());
         }
+    }
+
+    private long elapsedMs(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000L;
     }
 
     public String getToolboxUrl() {

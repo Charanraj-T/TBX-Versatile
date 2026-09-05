@@ -7,10 +7,15 @@ import com.tbx.finops.evidence.EvidenceObject;
 public record ChatResponse(
     String answer,
     EvidenceObject evidence,
-    String provider
+    String provider,
+    Integer tokensUsed
 ) {
     public static ChatResponse of(String answer, EvidenceObject evidence, String provider) {
-        return new ChatResponse(answer, evidence, provider);
+        return new ChatResponse(answer, evidence, provider, null);
+    }
+    
+    public static ChatResponse of(String answer, EvidenceObject evidence, String provider, Integer tokensUsed) {
+        return new ChatResponse(answer, evidence, provider, tokensUsed);
     }
 }
 

@@ -14,8 +14,10 @@ public record EvidenceObject(
     String tool,
     Map<String, Object> filters,
     String calculation,
+    String sqlQuery,
     Object result,
     Integer recordCount,
+    long executionTimeMs,
     ValidationStatus validationStatus,
     List<String> validationNotes,
     Instant timestamp

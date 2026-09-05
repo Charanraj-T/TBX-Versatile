@@ -8,14 +8,15 @@ public record McpToolExecutionResult(
     boolean isError,
     Object data,
     String rawText,
-    String errorMessage
+    String errorMessage,
+    long executionTimeMs
 ) {
-    public static McpToolExecutionResult success(String toolName, Object data, String rawText) {
-        return new McpToolExecutionResult(toolName, false, data, rawText, null);
+    public static McpToolExecutionResult success(String toolName, Object data, String rawText, long executionTimeMs) {
+        return new McpToolExecutionResult(toolName, false, data, rawText, null, executionTimeMs);
     }
 
     public static McpToolExecutionResult error(String toolName, String errorMessage) {
-        return new McpToolExecutionResult(toolName, true, null, null, errorMessage);
+        return new McpToolExecutionResult(toolName, true, null, null, errorMessage, 0L);
     }
 
     public int getRecordCount() {
@@ -27,4 +28,3 @@ public record McpToolExecutionResult(
         return data != null ? 1 : 0;
     }
 }
-
