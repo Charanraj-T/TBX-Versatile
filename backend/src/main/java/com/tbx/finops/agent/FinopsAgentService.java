@@ -17,14 +17,17 @@ public class FinopsAgentService {
     private final String aiProvider;
     private final SarvamAgentService sarvamAgentService;
     private final GroqAgentService groqAgentService;
+    private final OpenRouterAgentService openRouterAgentService;
 
     public FinopsAgentService(
             @Value("${app.ai.provider:groq}") String aiProvider,
             SarvamAgentService sarvamAgentService,
-            GroqAgentService groqAgentService) {
+            GroqAgentService groqAgentService,
+            OpenRouterAgentService openRouterAgentService) {
         this.aiProvider = aiProvider.trim().toLowerCase();
         this.sarvamAgentService = sarvamAgentService;
         this.groqAgentService = groqAgentService;
+        this.openRouterAgentService = openRouterAgentService;
         log.info("FinopsAgentService initialized with active provider: '{}'", this.aiProvider);
     }
 
@@ -36,7 +39,10 @@ public class FinopsAgentService {
             log.info("Incoming FinOps user question: '{}'", userQuestion);
 
             ChatResponse response;
-            if ("sarvam".equals(aiProvider)) {
+            if ("openrouter".equals(aiProvider)) {
+                log.info("Routing query to OpenRouter LLM agent");
+                response = openRouterAgentService.process(userQuestion);
+            } else if ("sarvam".equals(aiProvider)) {
                 log.info("Routing query to Sarvam LLM agent");
                 response = sarvamAgentService.process(userQuestion);
             } else {
@@ -59,6 +65,9 @@ public class FinopsAgentService {
     }
 
     public boolean isLlmConfigured() {
+        if ("openrouter".equals(aiProvider)) {
+            return openRouterAgentService.isConfigured();
+        }
         if ("sarvam".equals(aiProvider)) {
             return sarvamAgentService.isConfigured();
         }

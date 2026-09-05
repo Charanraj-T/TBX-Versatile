@@ -15,7 +15,7 @@ User Question
 Spring Boot API Backend
     │
     ▼ (Chat Completions + Tool Definitions)
-Groq LLM API (openai/gpt-oss-20b)
+Groq / OpenRouter / Sarvam LLM API
     │
     ▼ (Tool Call: name + parameters)
 Spring Boot McpClientService
@@ -60,4 +60,4 @@ When the actual TBX dataset is ready:
 1. Replace `database/init.sql` and `database/seed.sql` with the real TBX schema and tables.
 2. Update `mcp-toolbox/tools.yaml` with the new production SQL queries and parameters matching your FinOps requirements.
 3. Restart Docker Compose (`docker compose up --build -d`).
-4. The Spring Boot backend dynamically discovers the new tools through MCP metadata and immediately exposes them to the Groq LLM without changing application code.
+4. The Spring Boot backend dynamically discovers the new tools through MCP metadata and immediately exposes them to the active LLM (Groq, OpenRouter, or Sarvam) without changing application code.

@@ -48,6 +48,12 @@ app:
       api-key: ${SARVAM_API_KEY:}
       base-url: ${SARVAM_BASE_URL:https://api.sarvam.ai/v1}
       model: ${SARVAM_MODEL:sarvam-105b}
+    openrouter:
+      api-key: ${OPENROUTER_API_KEY:}
+      base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+      model: ${OPENROUTER_MODEL:meta-llama/llama-3.3-70b-instruct}
+      site-url: ${FRONTEND_URL:http://localhost:3000}
+      app-name: "TBX FinOps Assistant"
   mcp:
     toolbox-url: ${MCP_TOOLBOX_URL:http://mcp-toolbox:5000}
     timeout-seconds: 10

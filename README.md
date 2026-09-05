@@ -60,7 +60,7 @@ tbx-finops-assistant/
 ├── backend/                      # Java 21 + Spring Boot 3.4 microservice
 │   ├── src/main/java/com/tbx/finops/
 │   │   ├── controller/           # REST endpoints (/api/chat, /api/health)
-│   │   ├── agent/                # FinopsAgentService, GroqAgentService, SarvamAgentService
+│   │   ├── agent/                # FinopsAgentService, GroqAgentService, OpenRouterAgentService, SarvamAgentService
 │   │   ├── mcp/                  # Google MCP Toolbox Client (Streamable HTTP & SSE)
 │   │   ├── validation/           # ValidationEngine, ValidationResult, ValidationStatus
 │   │   ├── evidence/             # EvidenceObject, EvidenceBuilder
@@ -206,7 +206,24 @@ Groq provides ultra-low latency inference with OpenAI-compatible tool calling.
    - A second turn call to Groq synthesizes a clean, professional financial explanation.
    - An immutable `EvidenceObject` is attached with `validationStatus: VERIFIED`.
 
-### B. Sarvam AI (Alternative)
+### B. OpenRouter API (Access Any Foundation Model)
+
+OpenRouter provides access to Claude 3.5 Sonnet, Llama 3.3 70B, DeepSeek Chat/R1, GPT-4o, and hundreds of other foundation models with unified OpenAI-compatible tool calling.
+
+1. In `.env`:
+   ```env
+   AI_PROVIDER=openrouter
+   OPENROUTER_API_KEY=sk-or-v1-your_openrouter_key_here
+   OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+   OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct
+   ```
+2. Restart the backend container:
+   ```bash
+   docker compose restart backend
+   ```
+3. OpenRouter receives MCP tool schemas from Google MCP Toolbox, invokes tools, passes data through `ValidationEngine`, and returns verified financial evidence.
+
+### C. Sarvam AI (Alternative)
 
 To switch to Sarvam AI, set `AI_PROVIDER=sarvam` and provide `SARVAM_API_KEY`, `SARVAM_BASE_URL`, and `SARVAM_MODEL` in `.env`.
 

@@ -66,6 +66,9 @@ services:
       SARVAM_API_KEY: ${SARVAM_API_KEY:-}
       SARVAM_BASE_URL: ${SARVAM_BASE_URL:-https://api.sarvam.ai/v1}
       SARVAM_MODEL: ${SARVAM_MODEL:-sarvam-105b}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL:-meta-llama/llama-3.3-70b-instruct}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
     ports:
       - "8080:8080"
