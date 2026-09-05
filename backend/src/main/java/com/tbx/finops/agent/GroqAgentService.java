@@ -58,7 +58,7 @@ public class GroqAgentService {
         return !apiKey.isBlank() && !"not-set".equalsIgnoreCase(apiKey);
     }
 
-    public ChatResponse process(String userMessage) {
+    public ChatResponse process(String userMessage, List<Map<String, String>> history) {
         if (!isConfigured()) {
             String note = "Groq AI API key is not configured. Please set GROQ_API_KEY in your .env file.";
             log.warn("[GROQ AGENT] {}", note);
@@ -83,8 +83,19 @@ public class GroqAgentService {
             conversationMessages.add(Map.of(
                     "role", "system",
                     "content",
-                    "You are the TBX FinOps Assistant (Tiby). You analyze bank accounts, balances, credit/debit transactions, entities, and payment reference numbers. When asked about financial data, bank balances, or transaction details, you MUST call the appropriate tool to retrieve verified data from PostgreSQL via Google MCP Toolbox. Never invent or hallucinate financial numbers or balances. Always use masked account numbers (e.g. XXXXXX9069) and protect sensitive UTR numbers in your responses. Summarize results concisely, accurately, and professionally."));
-            conversationMessages.add(Map.of("role", "user", "content", userMessage));
+                    "You are the TBX FinOps Assistant (Tiby). You analyze bank accounts, balances, credit/debit transactions, entities, and payment reference numbers. When asked about financial data, bank balances, or transaction details, you MUST call the appropriate tool to retrieve verified data from PostgreSQL via Google MCP Toolbox. Never invent or hallucinate financial numbers or balances. Always use masked account numbers (e.g. XXXXXX9069) and protect sensitive UTR numbers in your responses. Summarize results concisely, accurately, and professionally. Use the conversation history to resolve follow-up questions and references like 'that account' or 'the previous transaction'."));
+
+            if (history == null || history.isEmpty()) {
+                conversationMessages.add(Map.of("role", "user", "content", userMessage));
+            } else {
+                for (Map<String, String> msg : history) {
+                    conversationMessages.add(Map.of("role", msg.get("role"), "content", msg.get("content")));
+                }
+                Map<String, String> lastMsg = history.get(history.size() - 1);
+                if (!userMessage.equals(lastMsg.get("content"))) {
+                    conversationMessages.add(Map.of("role", "user", "content", userMessage));
+                }
+            }
 
             Map<String, Object> requestPayload = new HashMap<>();
             requestPayload.put("model", model);

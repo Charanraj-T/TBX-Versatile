@@ -8,13 +8,25 @@ import { MessageInput } from './MessageInput';
 import { Trash2, Sparkles, AlertCircle, Info } from 'lucide-react';
 
 const EXAMPLE_PROMPTS = [
-  "What is the available balance for account acfbe204?",
+  "What is the available balance for account acfbe204-7541-492c-a352-040aa984bedc?",
   "Find details for transaction reference 1715499972",
-  "How many accounts do we have in HDFC Bank?",
-  "What is the overall transaction volume summary?"
+  "How many accounts do we have in HDFC Bank and what is our total balance?",
+  "What is the overall transaction volume summary across credits and debits?"
 ];
 
+const SESSION_KEY = 'tbx_finops_session_id';
+
+const getOrCreateSessionId = (): string => {
+  if (typeof window === 'undefined') return '';
+  const existing = window.localStorage.getItem(SESSION_KEY);
+  if (existing) return existing;
+  const id = crypto.randomUUID();
+  window.localStorage.setItem(SESSION_KEY, id);
+  return id;
+};
+
 export const ChatInterface: React.FC = () => {
+  const [sessionId, setSessionId] = useState<string>(getOrCreateSessionId);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome-msg',
@@ -41,7 +53,7 @@ export const ChatInterface: React.FC = () => {
     setLoading(true);
 
     try {
-      const response = await sendChatMessage(messageText);
+      const response = await sendChatMessage(messageText, sessionId);
       const botMsg: ChatMessage = {
         id: 'bot-' + Date.now(),
         role: 'assistant',
@@ -69,6 +81,9 @@ export const ChatInterface: React.FC = () => {
   const clearChat = () => {
     setMessages([]);
     setErrorBanner(null);
+    const id = crypto.randomUUID();
+    window.localStorage.setItem(SESSION_KEY, id);
+    setSessionId(id);
   };
 
   return (

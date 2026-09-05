@@ -31,6 +31,7 @@ spring:
 app:
   ai:
     provider: ${AI_PROVIDER:groq}
+    history-window-messages: ${HISTORY_WINDOW_MESSAGES:12}
     groq:
       api-key: ${GROQ_API_KEY:}
       base-url: ${GROQ_BASE_URL:https://api.groq.com/openai/v1}

@@ -19,7 +19,7 @@ public class ChatController {
 
     @PostMapping("/chat")
     public ResponseEntity<ChatResponse> chat(@Valid @RequestBody ChatRequest request) {
-        ChatResponse response = finopsAgentService.processQuery(request.message());
+        ChatResponse response = finopsAgentService.processQuery(request.message(), request.sessionId());
         return ResponseEntity.ok(response);
     }
 }

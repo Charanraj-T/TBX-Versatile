@@ -32,7 +32,8 @@ tools:
         b.bank_name
       FROM account a
       JOIN bank b ON a.bank_code = b.bank_code
-      WHERE a.account_id = $1 
+      WHERE a.account_id::text = $1 
+         OR a.account_id::text LIKE $1 || '%'
          OR a.account_number = $1 
          OR a.account_number LIKE '%' || $1
       LIMIT 1;
@@ -102,9 +103,12 @@ tools:
       FROM transaction t
       JOIN account a ON t.account_id = a.account_id
       JOIN bank b ON a.bank_code = b.bank_code
-      WHERE t.transaction_reference_id = $1 
+      WHERE t.transaction_reference_id::text = $1 
+         OR t.transaction_reference_id::text LIKE $1 || '%'
          OR t.utr_number = $1
-         OR t.transaction_id = $1
+         OR t.utr_number LIKE '%' || $1
+         OR t.transaction_id::text = $1
+         OR t.transaction_id::text LIKE $1 || '%'
       LIMIT 1;
 
   get_account_transactions:
@@ -129,7 +133,8 @@ tools:
       FROM transaction t
       JOIN account a ON t.account_id = a.account_id
       JOIN bank b ON a.bank_code = b.bank_code
-      WHERE a.account_id = $1 
+      WHERE a.account_id::text = $1 
+         OR a.account_id::text LIKE $1 || '%'
          OR a.account_number = $1 
          OR a.account_number LIKE '%' || $1
       ORDER BY t.transaction_date DESC

@@ -6,6 +6,9 @@ import jakarta.validation.constraints.Size;
 public record ChatRequest(
     @NotBlank(message = "Message cannot be empty")
     @Size(max = 2000, message = "Message exceeds maximum allowed length of 2000 characters")
-    String message
+    String message,
+
+    @Size(max = 64, message = "Session ID exceeds maximum allowed length of 64 characters")
+    String sessionId
 ) {}
 
