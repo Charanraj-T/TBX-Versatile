@@ -38,7 +38,7 @@ public class FinopsAgentService {
         try {
             log.info("Incoming FinOps user question: '{}'", userQuestion);
 
-            ChatResponse response;
+            ChatResponse response = null;
             if ("openrouter".equals(aiProvider)) {
                 log.info("Routing query to OpenRouter LLM agent");
                 response = openRouterAgentService.process(userQuestion);
@@ -50,9 +50,13 @@ public class FinopsAgentService {
                 response = groqAgentService.process(userQuestion);
             }
 
-            log.info("Finished processing question with provider '{}', validation status: {}",
-                    response.provider(),
-                    response.evidence() != null ? response.evidence().validationStatus() : "NONE");
+            if (response != null) {
+                log.info("Finished processing question with provider '{}', validation status: {}",
+                        response.provider(),
+                        response.evidence() != null ? response.evidence().validationStatus() : "NONE");
+            } else {
+                log.warn("Finished processing question but received null response");
+            }
 
             return response;
         } finally {

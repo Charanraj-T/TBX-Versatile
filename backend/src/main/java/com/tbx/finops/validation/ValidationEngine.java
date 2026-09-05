@@ -17,6 +17,16 @@ public class ValidationEngine {
     /**
      * Main validation entry point between MCP tool execution and answer formulation.
      */
+    private Map<String, Object> safeCastMap(Map<?, ?> map) {
+        Map<String, Object> result = new java.util.HashMap<>();
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            if (entry.getKey() instanceof String key) {
+                result.put(key, entry.getValue());
+            }
+        }
+        return result;
+    }
+
     public ValidationResult validate(String toolName, Object rawResult, Map<String, Object> filters) {
         log.debug("Validating tool execution for tool='{}', filters={}", toolName, filters);
 
@@ -31,19 +41,14 @@ public class ValidationEngine {
                 return ValidationResult.warning("No records matched the requested query filters.", Map.of("recordCount", 0));
             }
             if (list.get(0) instanceof Map<?, ?> firstMap) {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> item = (Map<String, Object>) firstMap;
-                return validateSingleRecord(toolName, item, filters, list.size());
+                return validateSingleRecord(toolName, safeCastMap(firstMap), filters, list.size());
             }
         }
 
         if (rawResult instanceof Map<?, ?> map) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> resultMap = (Map<String, Object>) map;
-            return validateSingleRecord(toolName, resultMap, filters, 1);
+            return validateSingleRecord(toolName, safeCastMap(map), filters, 1);
         }
 
-        // Fallback for primitive or other types
         return ValidationResult.verified("Result verified as valid scalar value.", Map.of("value", rawResult));
     }
 
@@ -89,13 +94,16 @@ public class ValidationEngine {
             }
 
             case "get_transaction_volume_summary" -> {
-                if (!record.containsKey("total_transactions") || !record.containsKey("total_credits_amount")) {
-                    return ValidationResult.failed("Summary missing total_transactions or credit/debit amount fields.");
+                if (!record.containsKey("total_transactions") || !record.containsKey("total_credits_amount") || !record.containsKey("total_debits_amount") || !record.containsKey("net_flow")) {
+                    return ValidationResult.failed("Summary missing total_transactions or credit/debit/net amount fields.");
                 }
                 Number totalTx = parseNumber(record.get("total_transactions"));
                 BigDecimal credits = parseBigDecimal(record.get("total_credits_amount"));
                 BigDecimal debits = parseBigDecimal(record.get("total_debits_amount"));
                 BigDecimal net = parseBigDecimal(record.get("net_flow"));
+                if (credits == null || debits == null || net == null) {
+                     return ValidationResult.failed("Invalid numeric values for transaction volumes.");
+                }
                 notes.add("Total transactions: " + totalTx + ", Credits: $" + credits + ", Debits: $" + debits + ", Net flow: $" + net);
             }
 

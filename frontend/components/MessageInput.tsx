@@ -39,7 +39,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({ onSend, disabled }) 
         value={input}
         onChange={(e) => setInput(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Ask about vendor spend, comparisons, or transactions (e.g. 'What is Vendor A's total spend?')..."
+        placeholder="Ask about account balances, bank summaries, or transactions (e.g. 'How many accounts do we have in HDFC Bank?')..."
         disabled={disabled}
         rows={1}
         className="w-full resize-none rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 pr-14 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20 disabled:opacity-60 shadow-sm transition-all"

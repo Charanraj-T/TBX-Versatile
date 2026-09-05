@@ -9,7 +9,6 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
-import java.time.Duration;
 import java.util.*;
 
 @Service
@@ -38,14 +37,12 @@ public class McpClientService {
      */
     public boolean isHealthy() {
         try {
-            // First check /healthz endpoint provided by toolbox
             var response = restClient.get()
                 .uri("/healthz")
                 .retrieve()
                 .toBodilessEntity();
             return response.getStatusCode().is2xxSuccessful();
         } catch (Exception e) {
-            // Fallback check: attempt tools/list via /mcp
             try {
                 return !listTools().isEmpty();
             } catch (Exception ex) {
@@ -92,7 +89,7 @@ public class McpClientService {
             for (JsonNode toolNode : toolsNode) {
                 String name = toolNode.path("name").asText();
                 String description = toolNode.path("description").asText("");
-                Map<String, Object> inputSchema = objectMapper.convertValue(toolNode.path("inputSchema"), Map.class);
+                Map<String, Object> inputSchema = objectMapper.convertValue(toolNode.path("inputSchema"), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
                 tools.add(new McpToolDefinition(name, description, inputSchema));
             }
 

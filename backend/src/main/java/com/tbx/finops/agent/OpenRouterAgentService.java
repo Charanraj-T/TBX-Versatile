@@ -82,11 +82,9 @@ public class OpenRouterAgentService {
         log.info("[OPENROUTER AGENT] Dispatching query to OpenRouter model '{}'", model);
 
         try {
-            // 1. Discover available tools from Google MCP Toolbox
             List<McpToolDefinition> tools = mcpClientService.listTools();
             List<Map<String, Object>> openAiTools = formatOpenAiTools(tools);
 
-            // 2. Prepare chat messages list
             List<Map<String, Object>> conversationMessages = new ArrayList<>();
             conversationMessages.add(Map.of(
                     "role", "system",
@@ -103,7 +101,6 @@ public class OpenRouterAgentService {
                 requestPayload.put("tool_choice", "auto");
             }
 
-            // 3. First-turn call to OpenRouter API
             String responseStr = restClient.post()
                     .uri("/chat/completions")
                     .header("Authorization", "Bearer " + apiKey)
@@ -122,7 +119,6 @@ public class OpenRouterAgentService {
             JsonNode choiceNode = root.path("choices").path(0);
             JsonNode messageNode = choiceNode.path("message");
 
-            // 4. Check if the model invoked any MCP tool
             JsonNode toolCallsNode = messageNode.path("tool_calls");
             if (toolCallsNode.isArray() && !toolCallsNode.isEmpty()) {
                 JsonNode toolCall = toolCallsNode.get(0);
@@ -134,17 +130,13 @@ public class OpenRouterAgentService {
                 Map<String, Object> args = objectMapper.readValue(argsStr, Map.class);
                 log.info("[OPENROUTER AGENT] Model invoked tool '{}' with arguments: {}", toolName, args);
 
-                // 5. Execute tool via Google MCP Toolbox
                 McpToolExecutionResult execResult = mcpClientService.executeTool(toolName, args);
 
-                // 6. Validate result via Validation Engine
                 ValidationResult validation = validationEngine.validate(toolName, execResult.data(), args);
 
-                // 7. Synthesize final answer via OpenRouter second-turn call
                 String finalAnswer = synthesizeAnswer(userMessage, conversationMessages, messageNode, toolCallId,
                         toolName, execResult, validation);
 
-                // 8. Construct audit EvidenceObject
                 EvidenceObject evidence = EvidenceBuilder.builder()
                         .question(userMessage)
                         .source("PostgreSQL via Google MCP Toolbox & OpenRouter (" + model + ")")
@@ -187,12 +179,10 @@ public class OpenRouterAgentService {
         try {
             List<Map<String, Object>> secondTurnMessages = new ArrayList<>(originalMessages);
 
-            // Convert assistant message with tool calls to map
             @SuppressWarnings("unchecked")
             Map<String, Object> assistantMsg = objectMapper.convertValue(assistantMessageNode, Map.class);
             secondTurnMessages.add(assistantMsg);
 
-            // Add tool response message
             String toolResultContent = execResult.rawText();
             if (toolResultContent == null || toolResultContent.isBlank()) {
                 toolResultContent = objectMapper.writeValueAsString(execResult.data());

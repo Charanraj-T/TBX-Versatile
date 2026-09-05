@@ -1,11 +1,8 @@
 server:
   port: 8080
-
 spring:
   application:
     name: tbx-finops-assistant
-  
-  # PostgreSQL datasource for Spring Boot Actuator health checks
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:postgres}:${POSTGRES_PORT:5432}/${POSTGRES_DB:finops}
     username: ${POSTGRES_USER:finops}
@@ -15,8 +12,6 @@ spring:
       connection-timeout: 5000
       maximum-pool-size: 5
       initialization-fail-timeout: -1
-
-  # Spring AI Configuration (Spring AI MCP Client)
   ai:
     openai:
       api-key: ${GROQ_API_KEY:${SARVAM_API_KEY:not-set}}
@@ -26,8 +21,6 @@ spring:
           model: ${GROQ_MODEL:${SARVAM_MODEL:openai/gpt-oss-20b}}
     mcp:
       client:
-        # Keep client disabled on spring auto-init to prevent crash if server is booting;
-        # Our resilient McpClientService manages connection lifecycle and graceful fallbacks
         enabled: false
         type: SYNC
         streamable-http:
@@ -35,8 +28,6 @@ spring:
             toolbox:
               url: ${MCP_TOOLBOX_URL:http://mcp-toolbox:5000}
               endpoint: /mcp
-
-# Application custom configurations
 app:
   ai:
     provider: ${AI_PROVIDER:groq}
@@ -59,8 +50,6 @@ app:
     timeout-seconds: 10
   cors:
     allowed-origin: ${FRONTEND_URL:http://localhost:3000}
-
-# Spring Boot Actuator
 management:
   endpoints:
     web:
@@ -71,8 +60,6 @@ management:
       show-details: always
       probes:
         enabled: true
-
-# Logging format and masking
 logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [CID:%X{correlationId:-NONE}] %logger{36} - %msg%n"

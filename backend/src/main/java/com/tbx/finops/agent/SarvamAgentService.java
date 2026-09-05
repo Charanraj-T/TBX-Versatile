@@ -76,11 +76,9 @@ public class SarvamAgentService {
         log.info("[SARVAM AGENT] Dispatching query to Sarvam model '{}'", model);
 
         try {
-            // 1. Discover available tools from Google MCP Toolbox
             List<McpToolDefinition> tools = mcpClientService.listTools();
             List<Map<String, Object>> openAiTools = formatOpenAiTools(tools);
 
-            // 2. Prepare chat completions payload
             Map<String, Object> requestPayload = new HashMap<>();
             requestPayload.put("model", model);
             requestPayload.put("messages", List.of(
@@ -93,7 +91,6 @@ public class SarvamAgentService {
                 requestPayload.put("tool_choice", "auto");
             }
 
-            // 3. Call Sarvam API (supports standard OpenAI chat/completions endpoint)
             String responseStr = restClient.post()
                     .uri("/chat/completions")
                     .header("api-subscription-key", apiKey)
@@ -111,7 +108,6 @@ public class SarvamAgentService {
             JsonNode choiceNode = root.path("choices").path(0);
             JsonNode messageNode = choiceNode.path("message");
 
-            // 4. Check if the model called a tool
             JsonNode toolCallsNode = messageNode.path("tool_calls");
             if (toolCallsNode.isArray() && !toolCallsNode.isEmpty()) {
                 JsonNode toolCall = toolCallsNode.get(0);
@@ -122,13 +118,10 @@ public class SarvamAgentService {
                 Map<String, Object> args = objectMapper.readValue(argsStr, Map.class);
                 log.info("[SARVAM AGENT] Model invoked tool '{}' with arguments: {}", toolName, args);
 
-                // 5. Execute tool via MCP Client
                 McpToolExecutionResult execResult = mcpClientService.executeTool(toolName, args);
 
-                // 6. Validate result via Validation Engine
                 ValidationResult validation = validationEngine.validate(toolName, execResult.data(), args);
 
-                // 7. Synthesize verified response with Evidence
                 EvidenceObject evidence = EvidenceBuilder.builder()
                         .question(userMessage)
                         .source("PostgreSQL via Google MCP Toolbox & Sarvam")

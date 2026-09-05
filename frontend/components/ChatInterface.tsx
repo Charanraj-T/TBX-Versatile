@@ -8,10 +8,10 @@ import { MessageInput } from './MessageInput';
 import { Trash2, Sparkles, AlertCircle, Info } from 'lucide-react';
 
 const EXAMPLE_PROMPTS = [
-  "What is Vendor A's total spend?",
-  "How much did Vendor B receive?",
-  "Compare Vendor A's spend between January and February.",
-  "Give me an overall transaction summary across all vendors."
+  "What is the available balance for account acfbe204?",
+  "Find details for transaction reference 1715499972",
+  "How many accounts do we have in HDFC Bank?",
+  "What is the overall transaction volume summary?"
 ];
 
 export const ChatInterface: React.FC = () => {
@@ -19,7 +19,7 @@ export const ChatInterface: React.FC = () => {
     {
       id: 'welcome-msg',
       role: 'assistant',
-      content: "👋 Hello! I am the **TBX FinOps Assistant**.\n\nI can query your vendor financial transactions, audit spend totals via Google MCP Toolbox, and present verified financial evidence directly from PostgreSQL.",
+      content: "👋 Hello! I am the **TBX FinOps Assistant**.\n\nI can query your banking and financial transactions, audit account balances via Google MCP Toolbox, and present verified financial evidence directly from PostgreSQL.",
       timestamp: new Date(),
     }
   ]);
@@ -77,7 +77,7 @@ export const ChatInterface: React.FC = () => {
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/80 text-xs text-slate-500">
         <div className="flex items-center gap-1.5 font-medium text-slate-600 dark:text-slate-400">
           <Info className="w-3.5 h-3.5 text-teal-600" />
-          <span>Demo Data Mode Active (PostgreSQL + MCP Toolbox)</span>
+          <span>Banking Mode Active (PostgreSQL + MCP Toolbox)</span>
         </div>
         {messages.length > 0 && (
           <button

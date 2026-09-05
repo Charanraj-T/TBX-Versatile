@@ -40,14 +40,11 @@ public class HealthController {
     public ResponseEntity<HealthResponse> getHealth() {
         String backendStatus = "UP";
 
-        // Check MCP Toolbox
         boolean mcpOk = mcpClientService.isHealthy();
         String mcpStatus = mcpOk ? "UP" : "DOWN";
 
-        // Check PostgreSQL DB
         String dbStatus = checkDatabaseHealth();
 
-        // Check LLM Configuration
         boolean llmConfigured = finopsAgentService.isLlmConfigured();
         String llmStatus = llmConfigured ? "CONFIGURED" : "NOT_CONFIGURED";
 

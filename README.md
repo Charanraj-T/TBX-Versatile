@@ -33,7 +33,7 @@ A production-structured starter package for the **TBX FinOps Assistant**, built 
                                                 ▼
                                   ┌───────────────────────────┐
                                   │      PostgreSQL DB        │
-                                  │  (Demo Vendors & Spend)   │
+                                  │  (Banking & Transactions) │
                                   └───────────────────────────┘
 ```
 
@@ -74,9 +74,9 @@ tbx-finops-assistant/
 │   ├── tools.yaml                # Parameterized SQL tools mapping to Postgres
 │   └── README.md
 │
-├── database/                     # PostgreSQL Initialization & Demo Seeds
-│   ├── init.sql                  # vendors, transactions, payments schema
-│   └── seed.sql                  # Seed records for Vendor A, B, C, D
+├── database/                     # PostgreSQL Initialization & Seeds
+│   ├── init.sql                  # bank, account, transaction schema
+│   └── seed.sql                  # Seed records for Banks, Accounts, Transactions
 │
 ├── docker-compose.yml            # Multi-container local orchestration
 ├── .env.example                  # Environment configuration template
@@ -117,7 +117,7 @@ docker compose up --build -d
 
 This starts all 4 containers:
 
-- `tbx-postgres`: PostgreSQL database with demo schema & seed records
+- `tbx-postgres`: PostgreSQL database with banking schema & seed records
 - `tbx-mcp-toolbox`: Google MCP Toolbox server on port 5000
 - `tbx-backend`: Spring Boot backend on port 8080
 - `tbx-frontend`: Next.js web application on port 3000
@@ -238,7 +238,7 @@ To switch to Sarvam AI, set `AI_PROVIDER=sarvam` and provide `SARVAM_API_KEY`, `
 
 ---
 
-## 7. Replacing Demo Data with the Real TBX Dataset
+## 7. Replacing Test Data with the Real TBX Dataset
 
 When the official TBX dataset and requirements arrive:
 
