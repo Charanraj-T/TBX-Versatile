@@ -1,12 +1,12 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect, useRef } from 'react';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import { Send, Sparkles, RotateCcw, Bot, User, AlertCircle, Loader2, Mic } from 'lucide-react';
-import type { ChatMessage } from '../lib/types';
-import { sendChatMessage, transcribeAudio, resetConversation } from '../lib/api';
-import { EvidenceCard } from './EvidenceCard';
+import React, { useState, useEffect, useRef } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import { Send, Sparkles, RotateCcw, Bot, User, AlertCircle, Loader2, Mic } from "lucide-react";
+import type { ChatMessage } from "../lib/types";
+import { sendChatMessage, transcribeAudio, resetConversation } from "../lib/api";
+import { EvidenceCard } from "./EvidenceCard";
 
 interface ChatBotProps {
   initialQuery?: string;
@@ -14,31 +14,29 @@ interface ChatBotProps {
 }
 
 const SUGGESTIONS: string[] = [
-  'Show my recent transactions',
-  'How many debit and credit transactions happened in May 2026?',
-  'List all the banks I bank with',
-  'What do my total debits and credits look like across all transactions?',
+  "Show my recent transactions",
+  "Show recent transactions for account 9069",
+  "How many debit and credit transactions happened in May 2026?",
+  "List all the banks I bank with",
+  "What do my total debits and credits look like across all transactions?",
 ];
 
-export const ChatBot: React.FC<ChatBotProps> = ({
-  initialQuery,
-  onClearInitialQuery,
-}) => {
+export const ChatBot: React.FC<ChatBotProps> = ({ initialQuery, onClearInitialQuery }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
-      id: 'welcome-msg',
-      role: 'assistant',
+      id: "welcome-msg",
+      role: "assistant",
       content:
-        'Hello! I\u2019m your FinOps assistant. Ask me anything about your money \u2014 recent transactions, monthly debits and credits, or your banks \u2014 and I\u2019ll pull verified answers from your financial ledger.',
+        "Hello! I\u2019m your FinOps assistant. Ask me anything about your money \u2014 recent transactions, monthly debits and credits, or your banks \u2014 and I\u2019ll pull verified answers from your financial ledger.",
       timestamp: new Date(),
     },
   ]);
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState("");
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
 
-  const hasUserMessage = messages.some((m) => m.role === 'user');
+  const hasUserMessage = messages.some((m) => m.role === "user");
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -46,7 +44,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
   useEffect(() => {
@@ -67,12 +65,12 @@ export const ChatBot: React.FC<ChatBotProps> = ({
 
     const userMsg: ChatMessage = {
       id: `user-${Date.now()}`,
-      role: 'user',
+      role: "user",
       content: text,
       timestamp: new Date(),
     };
     setMessages((prev) => [...prev, userMsg]);
-    if (!preset) setInputText('');
+    if (!preset) setInputText("");
     setLoading(true);
 
     try {
@@ -81,15 +79,15 @@ export const ChatBot: React.FC<ChatBotProps> = ({
         ...prev,
         {
           id: `bot-${Date.now()}`,
-          role: 'assistant',
+          role: "assistant",
           content: data.answer.headline,
           evidence: data.evidence
             ? {
                 tool: data.evidence.toolExecuted,
                 filters: data.evidence.filters,
                 recordCount: data.evidence.recordsCount,
-                source: 'PostgreSQL via Google MCP Toolbox',
-                validationStatus: data.evidence.isVerified ? 'VERIFIED' : 'WARNING',
+                source: "PostgreSQL via Google MCP Toolbox",
+                validationStatus: data.evidence.isVerified ? "VERIFIED" : "WARNING",
                 validationNotes: data.confidence?.disclaimer ? [data.confidence.disclaimer] : undefined,
               }
             : undefined,
@@ -103,8 +101,8 @@ export const ChatBot: React.FC<ChatBotProps> = ({
         ...prev,
         {
           id: `err-${Date.now()}`,
-          role: 'assistant',
-          content: `Error: ${err.message || 'Unable to connect to FinOps Backend API.'}`,
+          role: "assistant",
+          content: `Error: ${err.message || "Unable to connect to FinOps Backend API."}`,
           isError: true,
           timestamp: new Date(),
         },
@@ -120,7 +118,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({
   };
 
   const stopRecording = () => {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
       mediaRecorderRef.current.stop();
     }
   };
@@ -131,8 +129,8 @@ export const ChatBot: React.FC<ChatBotProps> = ({
       return;
     }
 
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
-      alert('Voice input is not supported in this browser. Please use a modern desktop browser.');
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      alert("Voice input is not supported in this browser. Please use a modern desktop browser.");
       return;
     }
 
@@ -147,9 +145,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({
       });
       mediaStreamRef.current = stream;
 
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-        ? 'audio/webm;codecs=opus'
-        : 'audio/webm';
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
       const recorder = new MediaRecorder(stream, { mimeType });
       mediaRecorderRef.current = recorder;
       mediaChunksRef.current = [];
@@ -174,10 +170,10 @@ export const ChatBot: React.FC<ChatBotProps> = ({
           if (transcript.trim()) {
             await handleSendMessage(transcript.trim());
           } else {
-            alert('No speech was detected. Please try again.');
+            alert("No speech was detected. Please try again.");
           }
         } catch (err: any) {
-          alert(err.message || 'Could not transcribe your speech. Please try again.');
+          alert(err.message || "Could not transcribe your speech. Please try again.");
         } finally {
           setIsTranscribing(false);
         }
@@ -186,11 +182,11 @@ export const ChatBot: React.FC<ChatBotProps> = ({
       recorder.start();
       setIsRecording(true);
       setTimeout(() => {
-        if (mediaRecorderRef.current?.state === 'recording') stopRecording();
+        if (mediaRecorderRef.current?.state === "recording") stopRecording();
       }, 30000);
     } catch {
       setIsRecording(false);
-      alert('Microphone access was denied or is unavailable. Please check browser permissions.');
+      alert("Microphone access was denied or is unavailable. Please check browser permissions.");
     }
   };
 
@@ -218,81 +214,81 @@ export const ChatBot: React.FC<ChatBotProps> = ({
 
       <div className="p-4 sm:p-6 space-y-4">
         {messages.map((msg) => {
-          const isUser = msg.role === 'user';
+          const isUser = msg.role === "user";
           return (
             <React.Fragment key={msg.id}>
-              <div className={`flex gap-3 ${isUser ? 'justify-end' : 'justify-start'}`}>
-              {!isUser && (
-                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
-                  <Bot className="w-4 h-4" />
-                </div>
-              )}
+              <div className={`flex gap-3 ${isUser ? "justify-end" : "justify-start"}`}>
+                {!isUser && (
+                  <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                    <Bot className="w-4 h-4" />
+                  </div>
+                )}
 
-              <div className="max-w-[85%] sm:max-w-[80%] space-y-1">
-                <div className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${
-                  isUser
-                    ? 'bg-blue-600 text-white rounded-tr-none'
-                    : msg.isError
-                    ? 'bg-rose-50 text-rose-900 border border-rose-200 rounded-tl-none'
-                    : 'bg-slate-50 text-slate-800 border border-slate-200 rounded-tl-none'
-                }`}>
-                  {msg.isError && (
-                    <div className="flex items-center gap-1.5 font-semibold text-rose-600 mb-1">
-                      <AlertCircle className="w-4 h-4" />
-                      <span>Error</span>
+                <div className="max-w-[85%] sm:max-w-[80%] space-y-1">
+                  <div
+                    className={`rounded-2xl px-4 py-3 text-sm shadow-sm ${
+                      isUser
+                        ? "bg-blue-600 text-white rounded-tr-none"
+                        : msg.isError
+                          ? "bg-rose-50 text-rose-900 border border-rose-200 rounded-tl-none"
+                          : "bg-slate-50 text-slate-800 border border-slate-200 rounded-tl-none"
+                    }`}
+                  >
+                    {msg.isError && (
+                      <div className="flex items-center gap-1.5 font-semibold text-rose-600 mb-1">
+                        <AlertCircle className="w-4 h-4" />
+                        <span>Error</span>
+                      </div>
+                    )}
+
+                    <div className="leading-relaxed">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
+                          ul: ({ children }) => <ul className="list-disc pl-5 space-y-0.5 my-1">{children}</ul>,
+                          ol: ({ children }) => <ol className="list-decimal pl-5 space-y-0.5 my-1">{children}</ol>,
+                          li: ({ children }) => <li>{children}</li>,
+                          strong: ({ children }) => <strong>{children}</strong>,
+                          table: ({ children }) => (
+                            <div className="overflow-x-auto my-2 rounded-xl border border-slate-200">
+                              <table className="w-full text-xs border-collapse">{children}</table>
+                            </div>
+                          ),
+                          thead: ({ children }) => <thead className="bg-slate-50">{children}</thead>,
+                          th: ({ children }) => (
+                            <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200 whitespace-nowrap">
+                              {children}
+                            </th>
+                          ),
+                          td: ({ children }) => <td className="px-3 py-2 text-slate-700 border-b border-slate-100">{children}</td>,
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
                     </div>
-                  )}
 
-                  <div className="leading-relaxed">
-                    <ReactMarkdown
-                      remarkPlugins={[remarkGfm]}
-                      components={{
-                        p: ({ children }) => <p className="mb-1 last:mb-0">{children}</p>,
-                        ul: ({ children }) => <ul className="list-disc pl-5 space-y-0.5 my-1">{children}</ul>,
-                        ol: ({ children }) => <ol className="list-decimal pl-5 space-y-0.5 my-1">{children}</ol>,
-                        li: ({ children }) => <li>{children}</li>,
-                        strong: ({ children }) => <strong>{children}</strong>,
-                        table: ({ children }) => (
-                          <div className="overflow-x-auto my-2 rounded-xl border border-slate-200">
-                            <table className="w-full text-xs border-collapse">{children}</table>
-                          </div>
-                        ),
-                        thead: ({ children }) => <thead className="bg-slate-50">{children}</thead>,
-                        th: ({ children }) => (
-                          <th className="px-3 py-2 text-left font-semibold text-slate-700 border-b border-slate-200 whitespace-nowrap">
-                            {children}
-                          </th>
-                        ),
-                        td: ({ children }) => (
-                          <td className="px-3 py-2 text-slate-700 border-b border-slate-100">{children}</td>
-                        ),
-                      }}
-                    >
-                      {msg.content}
-                    </ReactMarkdown>
+                    {!isUser && (msg.financialResponse || msg.evidence) && (
+                      <EvidenceCard evidence={msg.evidence} financialResponse={msg.financialResponse} />
+                    )}
                   </div>
 
-                  {!isUser && msg.evidence && <EvidenceCard evidence={msg.evidence} />}
+                  <div className={`text-[10px] text-slate-400 px-1 ${isUser ? "text-right" : "text-left"}`}>
+                    <span suppressHydrationWarning>{new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                    {msg.provider && !isUser && (
+                      <span className="ml-1.5 font-mono text-[9px] uppercase px-1 rounded bg-slate-200 text-slate-600">{msg.provider}</span>
+                    )}
+                  </div>
                 </div>
 
-                <div className={`text-[10px] text-slate-400 px-1 ${isUser ? 'text-right' : 'text-left'}`}>
-                  {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  {msg.provider && !isUser && (
-                    <span className="ml-1.5 font-mono text-[9px] uppercase px-1 rounded bg-slate-200 text-slate-600">
-                      {msg.provider}
-                    </span>
-                  )}
-                </div>
+                {isUser && (
+                  <div className="w-8 h-8 rounded-full bg-slate-700 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
+                    <User className="w-4 h-4" />
+                  </div>
+                )}
               </div>
 
-              {isUser && (
-                <div className="w-8 h-8 rounded-full bg-slate-700 text-white flex items-center justify-center shrink-0 shadow-sm mt-0.5">
-                  <User className="w-4 h-4" />
-                </div>
-              )}
-            </div>
-
-              {msg.id === 'welcome-msg' && !hasUserMessage && !loading && (
+              {msg.id === "welcome-msg" && !hasUserMessage && !loading && (
                 <div className="flex flex-wrap gap-2 mt-1 ml-11">
                   {SUGGESTIONS.map((suggestion) => (
                     <button
@@ -317,7 +313,7 @@ export const ChatBot: React.FC<ChatBotProps> = ({
             </div>
             <div className="bg-slate-50 border border-slate-200 rounded-2xl rounded-tl-none px-4 py-3 text-sm text-slate-500 flex items-center gap-2 shadow-sm">
               <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
-              <span>Querying PostgreSQL ledger...</span>
+              <span>Model is thinking...</span>
             </div>
           </div>
         )}
@@ -344,17 +340,17 @@ export const ChatBot: React.FC<ChatBotProps> = ({
           type="button"
           onClick={handleMicClick}
           disabled={loading || isTranscribing}
-          title={isRecording ? 'Stop recording' : 'Speak your question'}
-          className={`px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl font-semibold text-xs shadow-md transition-all flex items-center gap-1.5 shrink-0 ${
+          title={isRecording ? "Stop recording" : "Voice input"}
+          aria-label={isRecording ? "Stop recording" : "Voice input"}
+          className={`p-2.5 sm:p-2.5 rounded-xl font-semibold text-xs shadow-md transition-all flex items-center justify-center shrink-0 ${
             isRecording
-              ? 'bg-rose-600 hover:bg-rose-500 text-white animate-pulse'
+              ? "bg-rose-600 hover:bg-rose-500 text-white animate-pulse"
               : isTranscribing
-              ? 'bg-slate-200 text-slate-500 cursor-wait'
-              : 'bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-blue-600'
+                ? "bg-slate-200 text-slate-500 cursor-wait"
+                : "bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-blue-600"
           }`}
         >
-          {isTranscribing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mic className="w-3.5 h-3.5" />}
-          <span className="hidden sm:inline">{isRecording ? 'Stop' : isTranscribing ? 'Transcribing' : 'Speak'}</span>
+          {isTranscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Mic className="w-4 h-4" />}
         </button>
         <button
           type="submit"

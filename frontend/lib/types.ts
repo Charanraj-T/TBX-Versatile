@@ -18,6 +18,7 @@ export interface EvidenceDetail {
   isVerified: boolean;
   toolExecuted: string;
   sqlQuery?: string;
+  filters?: Record<string, any>;
   executionTimeMs: number;
   recordsCount: number;
   citations: Citation[];
@@ -59,8 +60,10 @@ export interface EvidenceObject {
   tool?: string;
   filters?: Record<string, any>;
   calculation?: string;
+  sqlQuery?: string;
   result?: any;
   recordCount?: number;
+  executionTimeMs?: number;
   validationStatus: ValidationStatus;
   validationNotes?: string[];
   timestamp?: string;

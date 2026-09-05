@@ -55,10 +55,10 @@ public class FinopsAgentService {
 
     public FinancialResponse processQuery(String userQuestion, String conversationId) {
         long startTime = System.currentTimeMillis();
-        String traceId = (tracer != null && tracer.currentSpan() != null) 
-                ? tracer.currentSpan().context().traceId() 
+        String traceId = (tracer != null && tracer.currentSpan() != null)
+                ? tracer.currentSpan().context().traceId()
                 : UUID.randomUUID().toString().replace("-", "").substring(0, 16);
-                
+
         MDC.put("correlationId", traceId);
 
         try {
@@ -67,7 +67,7 @@ public class FinopsAgentService {
             }
 
             log.info("Incoming FinOps user question: '{}' (conversationId: {})", userQuestion, conversationId);
-            
+
             conversationHistoryService.append(conversationId, "user", userQuestion);
             List<Map<String, String>> history = conversationHistoryService.findRecent(conversationId);
 
@@ -96,18 +96,21 @@ public class FinopsAgentService {
             // Build Confidence block
             ConfidenceResult confResult = confidenceEngine.evaluate(chatResponse);
             FinancialResponse.ConfidenceInfo confidenceInfo = new FinancialResponse.ConfidenceInfo(
-                    confResult.score(), confResult.grade(), confResult.badgeText(), confResult.disclaimer()
-            );
+                    confResult.score(), confResult.grade(), confResult.badgeText(), confResult.disclaimer());
 
             // Evidence block
-            boolean verified = chatResponse.evidence() != null && chatResponse.evidence().validationStatus() == ValidationStatus.VERIFIED;
+            boolean verified = chatResponse.evidence() != null
+                    && chatResponse.evidence().validationStatus() == ValidationStatus.VERIFIED;
             String toolExec = chatResponse.evidence() != null ? chatResponse.evidence().tool() : null;
-            String sqlQ = chatResponse.evidence() != null ? chatResponse.evidence().sqlQuery() : null;
+            String sqlQ = chatResponse.evidence().calculation();
             if (sqlQ == null || sqlQ.isBlank()) {
-                sqlQ = chatResponse.evidence() != null ? chatResponse.evidence().calculation() : null;
+                sqlQ = chatResponse.evidence() != null ? chatResponse.evidence().sqlQuery() : null;
             }
-            Map<String, Object> filters = chatResponse.evidence() != null ? chatResponse.evidence().filters() : Map.of();
-            int recordCount = chatResponse.evidence() != null && chatResponse.evidence().recordCount() != null ? chatResponse.evidence().recordCount() : 0;
+            Map<String, Object> filters = chatResponse.evidence() != null ? chatResponse.evidence().filters()
+                    : Map.of();
+            int recordCount = chatResponse.evidence() != null && chatResponse.evidence().recordCount() != null
+                    ? chatResponse.evidence().recordCount()
+                    : 0;
             Object rawResult = chatResponse.evidence() != null ? chatResponse.evidence().result() : null;
             long sqlExecutionMs = chatResponse.evidence() != null && chatResponse.evidence().executionTimeMs() > 0
                     ? chatResponse.evidence().executionTimeMs()
@@ -118,16 +121,13 @@ public class FinopsAgentService {
             long executionTimeMs = System.currentTimeMillis() - startTime;
 
             FinancialResponse.ModelEfficiency efficiency = new FinancialResponse.ModelEfficiency(
-                    chatResponse.provider(), executionTimeMs, tokens, 0.0
-            );
+                    chatResponse.provider(), executionTimeMs, tokens, 0.0);
 
             FinancialResponse.EvidenceDetail evidenceDetail = new FinancialResponse.EvidenceDetail(
-                    verified, toolExec, sqlQ, filters, sqlExecutionMs, recordCount, citations, efficiency
-            );
+                    verified, toolExec, sqlQ, filters, sqlExecutionMs, recordCount, citations, efficiency);
 
             FinancialResponse.Answer answer = new FinancialResponse.Answer(
-                    chatResponse.answer(), ""
-            );
+                    chatResponse.answer(), "");
 
             FinancialResponse.AnomalyInfo anomalyInfo = buildAnomaly("detect_anomalies".equals(toolExec), rawResult);
             String langfuseUrl = langfuseBaseUrl + "/project/trace/" + traceId;
@@ -140,8 +140,7 @@ public class FinopsAgentService {
                     confidenceInfo,
                     anomalyInfo,
                     evidenceDetail,
-                    normalizeRecords(rawResult)
-            );
+                    normalizeRecords(rawResult));
 
         } finally {
             MDC.remove("correlationId");
@@ -197,17 +196,40 @@ public class FinopsAgentService {
             Map<String, Object> row = rows.get(i);
             Object sourceId = firstNonNull(
                     row.get("transaction_reference_id"),
+                    row.get("account_number_masked"),
+                    row.get("bank_name"),
+                    row.get("bank_code"),
                     row.get("transaction_id"),
                     row.get("account_id"),
-                    row.get("account_number_masked"));
-            Object amount = row.get("transaction_amount");
-            Object date = row.get("transaction_date");
-            citations.add(new FinancialResponse.Citation(
-                    String.valueOf(sourceId != null ? sourceId : ""),
-                    date != null ? String.valueOf(date) : "",
-                    amount != null ? String.valueOf(amount) : "",
-                    String.valueOf(sourceId != null ? sourceId : "")
-            ));
+                    row.get("month"));
+            Object amountObj = firstNonNull(
+                    row.get("transaction_amount"),
+                    row.get("available_balance"),
+                    row.get("total_spend"),
+                    row.get("total_available_balance"),
+                    row.get("net_flow"),
+                    row.get("total_debits_amount"),
+                    row.get("discrepancy"),
+                    row.get("period1_total"));
+            Object dateObj = firstNonNull(
+                    row.get("transaction_date"),
+                    row.get("month"),
+                    row.get("last_transaction_date"),
+                    row.get("oldest_unreconciled_date"));
+
+            String ref = sourceId != null ? String.valueOf(sourceId) : "Record #" + (i + 1);
+            String date = dateObj != null ? String.valueOf(dateObj) : "";
+            String amount = "";
+            if (amountObj != null) {
+                try {
+                    double val = Double.parseDouble(String.valueOf(amountObj));
+                    amount = formatInr(val);
+                } catch (Exception e) {
+                    amount = String.valueOf(amountObj);
+                }
+            }
+
+            citations.add(new FinancialResponse.Citation(ref, date, amount, ref));
         }
         return citations;
     }
@@ -225,14 +247,16 @@ public class FinopsAgentService {
             }
         }
         if (anomalies.isEmpty()) {
-            return new FinancialResponse.AnomalyInfo(false, "No anomalous transactions detected in the analysis window.");
+            return new FinancialResponse.AnomalyInfo(false,
+                    "No anomalous transactions detected in the analysis window.");
         }
         Object top = anomalies.get(0).get("transaction_amount");
         String topAmount = top != null ? formatInr(Double.parseDouble(String.valueOf(top))) : "N/A";
         return new FinancialResponse.AnomalyInfo(
                 true,
-                "Detected " + anomalies.size() + " anomalous debit transaction(s) exceeding 2.5σ above the historical mean. Largest outlier: ₹" + topAmount + "."
-        );
+                "Detected " + anomalies.size()
+                        + " anomalous debit transaction(s) exceeding 2.5σ above the historical mean. Largest outlier: ₹"
+                        + topAmount + ".");
     }
 
     @SuppressWarnings("unchecked")
@@ -246,7 +270,16 @@ public class FinopsAgentService {
         if (rawResult instanceof List<?> list) {
             for (Object item : list) {
                 if (item instanceof Map<?, ?> map) {
-                    rows.add((Map<String, Object>) map);
+                    Object detail = ((Map<String, Object>) map).get("detail_rows");
+                    if (detail instanceof List<?> detailList) {
+                        for (Object detailItem : detailList) {
+                            if (detailItem instanceof Map<?, ?> inner) {
+                                rows.add((Map<String, Object>) inner);
+                            }
+                        }
+                    } else {
+                        rows.add((Map<String, Object>) map);
+                    }
                 }
             }
         } else if (rawResult instanceof Map<?, ?> map) {
@@ -266,7 +299,8 @@ public class FinopsAgentService {
 
     private Object firstNonNull(Object... values) {
         for (Object value : values) {
-            if (value != null) return value;
+            if (value != null)
+                return value;
         }
         return null;
     }

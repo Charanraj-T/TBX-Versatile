@@ -20,7 +20,7 @@ tools:
     parameters:
       - name: identifier
         type: string
-        description: "The account UUID or account number (e.g. 'acfbe204-7541-492c-a352-040aa984bedc' or '50200013729069' or '9069')"
+        description: "The account masked number or last 4 digits (e.g. '9069' or 'XXXXXX9069') or account UUID"
     statement: |
       SELECT 
         a.account_id,
@@ -120,7 +120,7 @@ tools:
     parameters:
       - name: identifier
         type: string
-        description: "The account ID or account number or last 4 digits (e.g. 'acfbe204-7541-492c-a352-040aa984bedc' or '50200013729069')"
+        description: "The account masked number or last 4 digits (e.g. '9069' or 'XXXXXX9069') or account UUID"
     statement: |
       SELECT 
         t.transaction_id,
@@ -268,7 +268,7 @@ tools:
       FROM account a
       JOIN bank b ON a.bank_code = b.bank_code
       LEFT JOIN transaction t ON t.account_id = a.account_id
-      WHERE ($1 = '' OR a.bank_code ILIKE $1)
+      WHERE ($1 IS NULL OR $1 = '' OR a.bank_code ILIKE $1)
       GROUP BY a.account_id, a.account_number, a.bank_code, b.bank_name, a.available_balance
       HAVING ABS(a.available_balance - COALESCE(SUM(CASE WHEN t.transaction_type = 'credit' THEN t.transaction_amount ELSE -t.transaction_amount END), 0)) > 0.01
       ORDER BY ABS(a.available_balance - COALESCE(SUM(CASE WHEN t.transaction_type = 'credit' THEN t.transaction_amount ELSE -t.transaction_amount END), 0)) DESC;
@@ -361,10 +361,15 @@ tools:
         w.*,
         b.hist_avg,
         b.hist_stddev,
-        ROUND((b.hist_avg + 2.5 * b.hist_stddev), 2) AS anomaly_threshold,
+        ROUND((CASE WHEN b.hist_stddev > 0 THEN b.hist_avg + 2.5 * b.hist_stddev ELSE 2.0 * b.hist_avg END), 2) AS anomaly_threshold,
         CASE WHEN b.hist_avg > 0 THEN ROUND(((w.transaction_amount / b.hist_avg) - 1) * 100, 2) ELSE NULL END AS pct_above_avg,
-        CASE WHEN w.transaction_amount > (b.hist_avg + 2.5 * b.hist_stddev) THEN true ELSE false END AS is_anomaly
+        CASE 
+          WHEN b.hist_stddev > 0 AND w.transaction_amount > (b.hist_avg + 2.5 * b.hist_stddev) THEN true
+          WHEN b.hist_stddev = 0 AND b.hist_avg > 0 AND w.transaction_amount > 2.0 * b.hist_avg THEN true
+          ELSE false 
+        END AS is_anomaly
       FROM window_txns w
       CROSS JOIN baseline b
-      WHERE b.hist_stddev > 0 AND w.transaction_amount > (b.hist_avg + 2.5 * b.hist_stddev)
+      WHERE (b.hist_stddev > 0 AND w.transaction_amount > (b.hist_avg + 2.5 * b.hist_stddev))
+         OR (b.hist_stddev = 0 AND b.hist_avg > 0 AND w.transaction_amount > 2.0 * b.hist_avg)
       ORDER BY w.transaction_amount DESC;

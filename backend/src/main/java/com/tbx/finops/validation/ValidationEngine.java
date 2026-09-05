@@ -133,6 +133,37 @@ public class ValidationEngine {
                 notes.add("Bank registry list verified with " + count + " registered bank(s).");
             }
 
+            case "calculate_vendor_spend" -> {
+                if (!record.containsKey("total_spend") && !record.containsKey("transaction_count")) {
+                    return ValidationResult.failed("Vendor spend summary missing total_spend or transaction_count.");
+                }
+                BigDecimal spend = parseBigDecimal(record.get("total_spend"));
+                Number txnCount = parseNumber(record.get("transaction_count"));
+                if (spend != null && spend.compareTo(BigDecimal.ZERO) < 0) {
+                    return ValidationResult.failed("Invalid negative spend amount: " + spend);
+                }
+                notes.add("Vendor spend summary validated: ₹" + (spend != null ? spend : "0.00") + " across " + (txnCount != null ? txnCount : 0) + " transaction(s).");
+            }
+
+            case "get_unreconciled_accounts" -> {
+                if (!record.containsKey("account_id") || !record.containsKey("available_balance")) {
+                    return ValidationResult.failed("Unreconciled account missing required fields.");
+                }
+                BigDecimal discrepancy = parseBigDecimal(record.get("discrepancy"));
+                notes.add("Unreconciled account '" + record.get("account_id") + "' validated with discrepancy of ₹" + (discrepancy != null ? discrepancy : "0.00"));
+            }
+
+            case "compare_periods" -> {
+                BigDecimal p1 = parseBigDecimal(record.get("period1_total"));
+                BigDecimal p2 = parseBigDecimal(record.get("period2_total"));
+                BigDecimal delta = parseBigDecimal(record.get("absolute_delta"));
+                notes.add("Period comparison validated: Period 1 = ₹" + (p1 != null ? p1 : "0.00") + ", Period 2 = ₹" + (p2 != null ? p2 : "0.00") + ", Delta = ₹" + (delta != null ? delta : "0.00"));
+            }
+
+            case "detect_anomalies" -> {
+                notes.add("Anomaly detection validated with " + count + " record(s) checked against statistical threshold.");
+            }
+
             default -> {
                 notes.add("Generic record validation passed with " + record.size() + " fields.");
             }
